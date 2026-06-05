@@ -21,6 +21,7 @@ from pathlib import Path
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
 from Hippocampus.Archivist.librarian import librarian
 from Thalamus.gland.service import SmartGland
+from Thalamus.utils.math_kernels import aggregate_ohlcv_njit
 
 CANONICAL_COLS = ["open", "high", "low", "close", "volume", "symbol", "bid", "ask", "bid_size", "ask_size", "pulse_type"]
 
@@ -263,7 +264,6 @@ class Thalamus:
             self.duck_pond.append_live_bars(normalized_raw)
         
         pulses = self.gland.ingest(normalized_raw)
-        print(f"DEBUG: drip_pulse got {len(pulses)} pulses: {[p[0] for p in pulses]}")
         normalized_pulses = []
         for pulse_type, agg_df in pulses:
             # Target #23: Timing Invariant check

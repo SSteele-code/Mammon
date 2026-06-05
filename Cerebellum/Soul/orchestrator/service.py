@@ -11,6 +11,7 @@
 # The VolumeFurnace runs the 8-stage optimizer (SCOUT/PRIME/CALCULATE) interleaved across
 # every 3rd MINT so it never blocks the main pulse loop.
 
+import copy
 import time
 import pandas as pd
 import json
@@ -168,18 +169,8 @@ class Orchestrator:
         """
         The Core Neural Cycle: Phase 1 Deterministic Sequence.
         """
-        if not hasattr(self, "mint_cadence_count"):
-            self.mint_cadence_count = 0
-        if not hasattr(self, "stable_frame"):
-            self.stable_frame = None
-        if not hasattr(self, "pons"):
-            self.pons = None
-        if not hasattr(self, "allocation_gland"):
-            self.allocation_gland = None
-        if not hasattr(self, "crawler"):
-            self.crawler = None
-
         pulse_start = time.perf_counter()
+        hook_status: Dict[str, str] = {}
         metrics: List[LobeMetrics] = []
         pulse_cell = data["pulse_type"] if "pulse_type" in data.columns else "ACTION"
         if isinstance(pulse_cell, pd.DataFrame):
@@ -285,7 +276,6 @@ class Orchestrator:
             if pulse_type == "MINT":
                 self.mint_cadence_count = (self.mint_cadence_count + 1) % 3
                 if self.mint_cadence_count == 1:
-                    import copy
                     self.stable_frame = copy.deepcopy(self.frame)
                 
                 if "Brain_Stem" in self.lobes:
@@ -332,7 +322,7 @@ class Orchestrator:
             print(f"[SOUL-F-P35-209] SOUL_CRITICAL: Cycle failed: {e}")
 
         pulse_duration = time.perf_counter() - pulse_start
-        self._log_pulse(metrics, pulse_duration, hook_status if "hook_status" in locals() else None)
+        self._log_pulse(metrics, pulse_duration, hook_status)
 
     def _run_lobe(self, name: str, func: callable, metrics_list: List[LobeMetrics], pulse_type: str, *args, **kwargs):
         start = time.perf_counter()
@@ -346,7 +336,7 @@ class Orchestrator:
             err_msg = f"{type(e).__name__}: {str(e)[:50]}"
             metrics_list.append(LobeMetrics(name, time.perf_counter() - start, f"error: {err_msg}", False, pulse_type))
             print(f"[SOUL_LOBE_ERROR] lobe={name} error={err_msg}")
-            raise e
+            raise
 
     def _log_pulse(self, metrics: List[LobeMetrics], total_duration: float, hooks: Dict[str, str] = None):
         if not hasattr(self, "pulse_seq"): self.pulse_seq = 0

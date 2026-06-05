@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 
 class MomentumEngine:
     """Tier 2: The Inflection Engine (MACD Reversals)."""

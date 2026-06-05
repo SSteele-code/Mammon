@@ -21,9 +21,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import Matern, ConstantKernel as C
 
 from Hippocampus.Archivist.librarian import MultiTransportLibrarian, librarian
-from Hospital.Optimizer_loop.bounds import MAXS, MINS, normalize_weights, PARAM_KEYS
+from Hospital.Optimizer_loop.bounds import MAXS, MINS, normalize_weights, PARAM_KEYS, DOMAIN_SLICES
 from Hospital.Optimizer_loop.guardrailed_optimizer import GuardrailedOptimizer, ScoreVector
 
 
@@ -47,10 +49,6 @@ class V2Budget:
             self.refine_lhs_n = int(self.stage_f_n)
 
 
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern, ConstantKernel as C
-
-from Hospital.Optimizer_loop.bounds import MAXS, MINS, normalize_weights, DOMAIN_SLICES
 
 
 class OptimizerV2Engine:
@@ -147,10 +145,10 @@ class OptimizerV2Engine:
         return {"status": "ERROR", "reason": f"UNKNOWN_GROUP:{group}"}
 
     def run_scout_pipeline(self, regime_id: str, price: float, atr: float, stop_level: float) -> List[Dict[str, Any]]:
-        # Encapsulates Stages A, B, C
-        a_rows = self._stage_a_edge_lhs_scan(regime_id, price, atr, stop_level)
-        b_rows = self._stage_b_island_fill(a_rows, regime_id, price, atr, stop_level)
-        return b_rows
+        a_rows = self._stage_a_edge_lhs(regime_id, price, atr, stop_level)
+        b_rows = self._stage_b_semi_middle_band(a_rows, regime_id)
+        c_rows = self._stage_c_candidate_library_fill(b_rows, regime_id)
+        return c_rows
 
     def run_pipeline(
         self,
@@ -350,10 +348,11 @@ class OptimizerV2Engine:
         stop_floors = price - (atr * stop_mults) # [cand, 1]
         dist_to_stop = -(atr * stop_mults) # [cand, 1] - Distance is negative for stop-loss
         
-        # Piece 14: Use central standardized kernel for consistent Risk Gate enforcement
-        from Hospital.Optimizer_loop.bounds import calculate_batch_fitness
-        
-        # Calculate min reach relative to start (0.0) for the kernel
+        # Build gear mask: True for steps within each candidate's gear window
+        step_idx = np.arange(n_steps).reshape(1, 1, n_steps)
+        gear_mask_3d = step_idx < gears.reshape(-1, 1, 1)  # [n_cand, 1, n_steps] broadcasts to [n_cand, n_paths, n_steps]
+
+        # Calculate min reach relative to start for stop-loss evaluation
         # min_reach_rel: [cand, paths]
         masked_rel = np.where(gear_mask_3d, np.cumsum(path_shocks, axis=2), 999.0)
         min_reach_rel = np.min(masked_rel, axis=2) # [cand, paths]
@@ -508,16 +507,23 @@ class OptimizerV2Engine:
                 effective_sample_size=float(len(x_train))
             )
             
-            # Create the Bayesian Winner candidate
+            # Create the Bayesian Winner candidate.
+            # Survival/stability metrics are interpolated from the training set since the GP
+            # predicts robust_score but not the underlying simulation stats.
+            mean_survival = float(np.mean([r.get("survival", 0.0) for r in f_rows]))
+            mean_stability = float(np.mean([r.get("stability", 0.0) for r in f_rows]))
+            mean_drawdown = float(np.mean([r.get("drawdown", 1.0) for r in f_rows]))
+            mean_slippage = float(np.mean([r.get("slippage_adj", 0.0) for r in f_rows]))
+            mean_support = int(np.mean([r.get("support_count", 0) for r in f_rows]))
             bayes_candidate = {
                 "candidate_id": cid,
                 "row": bayes_row,
                 "robust_score": float(y_pred[best_idx]),
-                "support_count": int(f_rows[0].get("support_count", 0)),
-                "survival": float(f_rows[0].get("survival", 0.0)),
-                "stability": float(f_rows[0].get("stability", 0.0)),
-                "drawdown": float(f_rows[0].get("drawdown", 1.0)),
-                "slippage_adj": float(f_rows[0].get("slippage_adj", 0.0)),
+                "support_count": mean_support,
+                "survival": mean_survival,
+                "stability": mean_stability,
+                "drawdown": mean_drawdown,
+                "slippage_adj": mean_slippage,
             }
             
             top = sorted(f_rows, key=lambda x: x["robust_score"], reverse=True)[:self.budget.bayes_n]

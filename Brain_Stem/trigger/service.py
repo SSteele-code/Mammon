@@ -92,11 +92,22 @@ class Trigger:
             self._reconcile_position_state()
 
     def _reconcile_position_state(self):
-        """Phase 6 Target: Reconcile in-memory position with Treasury ledger."""
-        if not self.treasury: return
-        print("[BRAIN STEM] Reconciling active positions with Treasury...")
-        # Path: Treasury.get_status() provides open_positions count.
-        # Implementation Detail: Fully wire multi-symbol reconciliation in next piece.
+        """Reconcile in-memory position state with the Treasury ledger on boot."""
+        if not self.treasury:
+            return
+        try:
+            open_count = self.treasury.get_open_positions_count()
+            if open_count > 0:
+                print(f"[BRAIN STEM] WARNING: {open_count} open position(s) in Treasury. "
+                      "Engine starts position-locked until manual review.")
+                self.position = {
+                    "side": "UNKNOWN", "entry_price": 0.0, "entry_ts": time.time(),
+                    "symbol": "UNKNOWN", "qty": 0.0, "reconciled": False,
+                }
+            else:
+                print("[BRAIN STEM] No open positions in Treasury. Starting clean.")
+        except Exception as e:
+            print(f"[STEM-W-P60-607] BRAIN STEM: Position reconciliation failed: {e}")
 
     def _verify_credentials(self):
         """Piece 119: Fail-fast credential check."""
@@ -327,6 +338,7 @@ class Trigger:
 
         # MINT finalizes pending ACTION approvals.
         if pulse == "MINT":
+            just_entered = False
             if self.pending_entry is not None and self.position is None:
                 intent_id = self.pending_entry.get("intent_id")
                 symbol = self.pending_entry["symbol"]
@@ -439,6 +451,7 @@ class Trigger:
                             "mean_at_entry": self.pending_entry.get("mean_at_entry", price),
                             "sigma_at_entry": self.pending_entry.get("sigma_at_entry", 1e-9),
                         }
+                        just_entered = True
                         self._emit_exec_event(
                             pulse,
                             "FIRE",
@@ -452,6 +465,66 @@ class Trigger:
                         )
             self.pending_entry = None
             self.mean_dev_monitor_active = False
+
+            # Evaluate bar-close exit for a position that was open before this MINT.
+            if self.position is not None and not just_entered:
+                val_data = _val
+                price = float(frame.structure.price)
+                mean = val_data["mean"]
+                lower = val_data["lower"]
+                upper = val_data["upper"]
+                sigma = max(val_data.get("sigma", 0.0), 1e-9)
+                z_score = (price - mean) / sigma
+                mean_rev_target_sigma = float(self.config.get("brain_stem_mean_rev_target_sigma", 0.0))
+                symbol = str(getattr(getattr(frame, "market", None), "symbol", "") or "").strip()
+
+                exit_reason = None
+                if price <= lower:
+                    exit_reason = f"SAFETY_VALVE_STOP (<= {lower:.2f})"
+                elif price >= upper:
+                    exit_reason = f"SAFETY_VALVE_TAKE (>= {upper:.2f})"
+                elif z_score >= mean_rev_target_sigma and self.prev_price and price < self.prev_price:
+                    exit_reason = (
+                        f"SAFETY_VALVE_MEAN_REV (z={z_score:.2f} >= {mean_rev_target_sigma:.2f}, rolling)"
+                    )
+
+                if exit_reason:
+                    pnl = price - self.position["entry_price"]
+                    print(f"   [BRAIN STEM] SELL {symbol}: {exit_reason} PnL: {pnl:+.4f}")
+                    self.last_exit_reason = exit_reason
+                    sell_qty = self.position.get("qty", float(frame.command.qty or 0.0))
+                    fire_result = self._fire_physical(symbol, "SELL", sell_qty, price)
+                    if not isinstance(fire_result, dict):
+                        fire_result = {"status": "fired", "source": "compat"}
+                    if fire_result.get("status") == "fired" and self.treasury is not None:
+                        exit_intent_id = f"{symbol}:{int(time.time() * 1000)}:{uuid.uuid4().hex[:8]}"
+                        self.treasury.record_intent({
+                            "intent_id": exit_intent_id,
+                            "ts": time.time(),
+                            "symbol": symbol,
+                            "side": "SELL",
+                            "qty": sell_qty,
+                            "trigger_pulse": pulse,
+                            "reason": exit_reason,
+                            "mode": self.execution_mode,
+                            "price_ref": price,
+                            "mean": float(val_data.get("mean", price)),
+                            "sigma": float(val_data.get("sigma", 0.0)),
+                            "z_score": z_score,
+                            "risk_score": self.risk_score,
+                            "confidence": _prior,
+                        })
+                        self.treasury.fire_intent(
+                            exit_intent_id, symbol, "SELL", sell_qty, price,
+                            sigma=float(val_data.get("sigma", 0.0)),
+                            price_ref=price, pulse_type=pulse,
+                        )
+                    self.position = None
+                    self._emit_exec_event(pulse, "EXIT", exit_reason, symbol=symbol, price=price)
+                else:
+                    print(f"   [BRAIN STEM] HOLD {symbol} @ {price:.4f}")
+                    self._emit_exec_event(pulse, "HOLD", "HOLD", symbol=symbol, price=price)
+
             self.prev_price = frame.structure.price
             return True
 

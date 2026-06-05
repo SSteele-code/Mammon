@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 
 class VelocityEngine:
     """Tier 3: The Velocity Engine (Bollinger Bands Speed)."""

@@ -76,13 +76,14 @@ class CommandSlot:
     approved: int = 0
     reason: str = "INIT"
     final_confidence: float = 0.0
+    confidence_score: float = 0.0
     sizing_mult: float = 0.0
     ready_to_fire: bool = False
-    qty: float = 0.0 # Piece 28
-    notional: float = 0.0 # Piece 29
-    size_reason: str = "NONE" # Piece 30
-    risk_used: float = 0.0 # Piece 31
-    cost_adjusted_conviction: float = 0.0 # Piece 32
+    qty: float = 0.0
+    notional: float = 0.0
+    size_reason: str = "NONE"
+    risk_used: float = 0.0
+    cost_adjusted_conviction: float = 0.0
 
 class BrainFrame:
     """
