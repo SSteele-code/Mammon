@@ -10,7 +10,7 @@ class SmartGland:
     """
     Thalamus/SmartGland: The Vectorized High-Fidelity Resampler.
     
-    Piece 13: Pulse-Material Generator.
+    Pulse-Material Generator.
     - Generates window aggregation + marker emission (SEED/ACTION/MINT).
     - Soul retains final cadence authority.
     - Context-Aware: Maintains trailing 50 bars of history.
@@ -144,10 +144,10 @@ class SmartGland:
         return pulses
 
     def _agg_window(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Piece 10: High-speed aggregation via Numba kernel."""
+        """High-speed aggregation via Numba kernel."""
         if df.empty: return pd.DataFrame()
         
-        # Piece 19: Direct NumPy view for zero-copy access
+        # Direct NumPy view for zero-copy access
         vals = aggregate_ohlcv_njit(
             df["open"].to_numpy(dtype=np.float64),
             df["high"].to_numpy(dtype=np.float64),
@@ -156,7 +156,7 @@ class SmartGland:
             df["volume"].to_numpy(dtype=np.float64)
         )
         
-        # Piece 8: Preserve bid/ask/size in aggregate
+        # Preserve bid/ask/size in aggregate
         entry = {
             'open': vals[0],
             'high': vals[1],

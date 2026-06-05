@@ -6,12 +6,14 @@ from typing import Optional
 from Hippocampus.Archivist.librarian import librarian
 
 from Hospital.Optimizer_loop.optimizer_v2.service import PARAM_KEYS
+import logging
+logger = logging.getLogger(__name__)
 
 class SynapseRefinery:
     """
     Pituitary/Refinery: The Synapse Harvester (v2.1 Multi-Transport).
     V3.2 ANALYTICAL: Harvests from DuckDB and grounds fitness in TimescaleDB PnL.
-    Piece 220: Expanded to 46-D parameters.
+    Expanded to 46-D parameters.
     """
     def __init__(self, **kwargs):
         self.librarian = librarian
@@ -21,10 +23,9 @@ class SynapseRefinery:
         Target #75: PnL-Grounded Fitness.
         Joins synapse snapshots with actual realization fills.
         """
-        print(f"[REFINERY] Harvesting synapse tickets from last {hours}h...")
-        
+        logger.info(f"[REFINERY] Harvesting synapse tickets from last {hours}h...")
         # 1. Pull analytical synapse tickets from DuckDB (Piece 101)
-        # Piece 220: Ensure all 46 param columns are selected if they exist
+        # Ensure all 46 param columns are selected if they exist
         synapse_query = """
             SELECT * FROM synapse_mint 
             WHERE ts >= to_timestamp(?)
@@ -37,12 +38,12 @@ class SynapseRefinery:
             # Multi-Transport Fix: Use standardized librarian gateway
             rows = self.librarian.read(synapse_query, (cutoff,), transport="duckdb")
             if not rows:
-                print("[REFINERY] Lake is empty. No training data available.")
+                logger.info("[REFINERY] Lake is empty. No training data available.")
                 return pd.DataFrame()
             
             df = pd.DataFrame(rows)
             
-            # Piece 221: Handle missing param columns gracefully (default to median of MINS/MAXS or 0.0)
+            # Handle missing param columns gracefully (default to median of MINS/MAXS or 0.0)
             from Hospital.Optimizer_loop.bounds.service import MINS, MAXS
             for i, key in enumerate(PARAM_KEYS):
                 if key not in df.columns:
@@ -84,12 +85,12 @@ class SynapseRefinery:
 
             df['realized_fitness'] = df.apply(_calc_realized_fitness, axis=1)
             
-            print(f"[REFINERY] Harvested {len(df)} tickets. Matrix grounded in PnL (46-D).")
+            logger.info(f"[REFINERY] Harvested {len(df)} tickets. Matrix grounded in PnL (46-D).")
             return df
             
         except Exception as e:
-            # Piece 92: Standardized MNER for refinery failure
-            print(f"[PITU-E-P92-901] REFINERY_HARVEST_FAILED: {e}")
+            # Standardized MNER for refinery failure
+            logger.info(f"[PITU-E-P92-901] REFINERY_HARVEST_FAILED: {e}")
             return pd.DataFrame()
 
     def get_enriched_training_data(self, hours: int = 168) -> pd.DataFrame:
@@ -118,6 +119,5 @@ class SynapseRefinery:
                     silver_df[key] = (MINS[i] + MAXS[i]) / 2.0
             
             data = pd.concat([data, silver_df], ignore_index=True)
-            print(f"[REFINERY] Enriched data with {len(silver_list)} Silver candidates.")
-            
+            logger.info(f"[REFINERY] Enriched data with {len(silver_list)} Silver candidates.")
         return data

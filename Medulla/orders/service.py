@@ -1,4 +1,6 @@
 """
+import logging
+logger = logging.getLogger(__name__)
 Medulla: Orders Module.
 Handles position sizing and order execution logic for the Brain Stem trigger.
 """
@@ -44,11 +46,11 @@ def buy(client, symbol: str, qty: float, **kwargs):
             type="market",
             time_in_force="gtc"
         )
-        print(f"[ORDERS] BUY submitted: {symbol} qty={qty:.6f} order_id={order.id}")
+        logger.info(f"[ORDERS] BUY submitted: {symbol} qty={qty:.6f} order_id={order.id}")
         return order
     except Exception as e:
         # MEDU-E-P55-506: Buy order submission exception
-        print(f"[MEDU-E-P55-506] ORDERS_BUY_FAILED: {symbol} qty={qty:.6f} error={e}")
+        logger.error(f"[MEDU-E-P55-506] ORDERS_BUY_FAILED: {symbol} qty={qty:.6f} error={e}")
         return None
 
 
@@ -69,9 +71,9 @@ def sell(client, symbol: str, qty: float, **kwargs):
             type="market",
             time_in_force="gtc"
         )
-        print(f"[ORDERS] SELL submitted: {symbol} qty={qty:.6f} order_id={order.id}")
+        logger.info(f"[ORDERS] SELL submitted: {symbol} qty={qty:.6f} order_id={order.id}")
         return order
     except Exception as e:
         # MEDU-E-P55-507: Sell order submission exception
-        print(f"[MEDU-E-P55-507] ORDERS_SELL_FAILED: {symbol} qty={qty:.6f} error={e}")
+        logger.error(f"[MEDU-E-P55-507] ORDERS_SELL_FAILED: {symbol} qty={qty:.6f} error={e}")
         return None

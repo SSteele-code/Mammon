@@ -2,6 +2,8 @@ import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Optional
+import logging
+logger = logging.getLogger(__name__)
 
 _UI_DB = Path(__file__).resolve().parent / "Ecosystem_UI.db"
 
@@ -47,7 +49,7 @@ class UiScribe:
                 )
             self._schema_ready = True
         except Exception as exc:
-            print(f"[UI_SCRIBE] _init_schema deferred: {exc}")
+            logger.info(f"[UI_SCRIBE] _init_schema deferred: {exc}")
             self._schema_ready = False
 
     def write_mint(self, frame: Any):
@@ -89,4 +91,4 @@ class UiScribe:
                     ),
                 )
         except Exception as exc:
-            print(f"[UI_SCRIBE] write_mint failed: {exc}")
+            logger.info(f"[UI_SCRIBE] write_mint failed: {exc}")

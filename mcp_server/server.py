@@ -15,6 +15,8 @@ from typing import Any, Optional
 import duckdb
 import redis as redis_lib
 from fastmcp import FastMCP
+import logging
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -526,5 +528,5 @@ def money_tape(n: int = 20) -> dict:
 
 if __name__ == "__main__":
     port = int(os.getenv("MCP_PORT", 5001))
-    print(f"[mammon-mcp] Starting on port {port} — BASE={BASE}")
+    logger.info(f"[mammon-mcp] Starting on port {port} — BASE={BASE}")
     mcp.run(transport="sse", host="0.0.0.0", port=port)

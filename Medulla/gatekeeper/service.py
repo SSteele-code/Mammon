@@ -10,6 +10,8 @@ import pandas as pd
 from Cerebellum.Soul.brain_frame import BrainFrame
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -50,7 +52,7 @@ class Gatekeeper:
         if pulse_type is None:
             raise TypeError("decide requires pulse_type")
             
-        # Piece 14: Gatekeeper authority only fires at ACTION
+        # Gatekeeper authority only fires at ACTION
         if not enforce_pulse_gate(pulse_type, ["ACTION"], "Gatekeeper"):
             # Inhibit by writing back to frame
             frame.command.approved = 0
@@ -168,8 +170,8 @@ class Gatekeeper:
                 return float(default)
             return parsed
         except Exception as e:
-            # Piece 58: Standardized MNER for sanitization failure
-            print(f"[MEDU-E-P58-501] GATEKEEPER_NUMERIC_SANITIZATION_FAILURE: {e}")
+            # Standardized MNER for sanitization failure
+            logger.error(f"[MEDU-E-P58-501] GATEKEEPER_NUMERIC_SANITIZATION_FAILURE: {e}")
             return float(default)
 
     def _clamp(self, value: float, low: float, high: float) -> float:

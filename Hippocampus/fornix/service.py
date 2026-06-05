@@ -42,6 +42,8 @@ from Hippocampus.pineal.service import Pineal
 from Pituitary.search.diamond import DiamondGland
 from Brain_Stem.trigger.service import Trigger
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------ #
@@ -86,7 +88,7 @@ class Fornix:
         self.pineal = Pineal()
         self.start_time = None
         self.run_id = f"fornix-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-        self.headless = headless # Piece 95: Headless validation
+        self.headless = headless # Headless validation
         self.progress_callback = progress_callback if not headless else None
         
         # Metrics
@@ -99,14 +101,13 @@ class Fornix:
         # Diamond output path
         self.diamond_path = project_root / "Pituitary" / "diamond.json"
         
-        print(f"\n{'='*60}")
-        print(f"[FORNIX] Historical Memory Replay Engine")
-        print(f"[FORNIX] Run ID: {self.run_id}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"[FORNIX] Historical Memory Replay Engine")
+        logger.info(f"[FORNIX] Run ID: {self.run_id}")
         print(f"[FORNIX] Monte Scale: {self.config['monte_scale']} "
               f"({self.config['paths_per_lane']} paths/lane)")
-        print(f"[FORNIX] Max Hours: {self.config['max_hours']}")
-        print(f"{'='*60}\n")
-    
+        logger.info(f"[FORNIX] Max Hours: {self.config['max_hours']}")
+        logger.info(f"{'='*60}\n")
     # ------------------------------------------------------------------ #
     #  MAIN RUN LOOP                                                      #
     # ------------------------------------------------------------------ #
@@ -119,20 +120,20 @@ class Fornix:
         
         available = self.pond.get_symbol_list()
         if not available:
-            print("[FORNIX] ERROR: No symbols in market_tape. Ingest CSVs first.")
+            logger.info("[FORNIX] ERROR: No symbols in market_tape. Ingest CSVs first.")
             return
         
         targets = symbols if symbols else available
         targets = [s for s in targets if s in available]
         
         total_bars = sum(self.pond.get_bar_count(s) for s in targets)
-        print(f"[FORNIX] Targets: {len(targets)} symbols, {total_bars:,} total bars")
-        print(f"[FORNIX] Symbols: {', '.join(targets)}")
+        logger.info(f"[FORNIX] Targets: {len(targets)} symbols, {total_bars:,} total bars")
+        logger.info(f"[FORNIX] Symbols: {', '.join(targets)}")
         print()
         
         for idx, symbol in enumerate(targets):
             if self.shutdown_requested:
-                print(f"\n[FORNIX] SHUTDOWN REQUESTED. Stopping at {idx}/{len(targets)} symbols.")
+                logger.info(f"\n[FORNIX] SHUTDOWN REQUESTED. Stopping at {idx}/{len(targets)} symbols.")
                 break
 
             if self._time_exceeded():
@@ -173,12 +174,11 @@ class Fornix:
         # Load bars from DuckDB
         bars_df = self.pond.get_bars_for_symbol(symbol, after_ts=after_ts)
         if bars_df.empty:
-            print(f"[FORNIX] {symbol}: No bars to process. Skipping.")
+            logger.info(f"[FORNIX] {symbol}: No bars to process. Skipping.")
             return
         
         bar_count = len(bars_df)
-        print(f"\n[FORNIX] [{sym_idx}/{sym_total}] {symbol}: {bar_count:,} bars")
-        
+        logger.info(f"\n[FORNIX] [{sym_idx}/{sym_total}] {symbol}: {bar_count:,} bars")
         # Initialize pipeline components (fresh per symbol)
         gland, soul = self._build_pipeline(symbol)
         
@@ -241,7 +241,7 @@ class Fornix:
                     ticket_buffer = []
                 except Exception as e:
                     # [FORN-E-P95-1005] Synapse write failure
-                    print(f"[FORN-E-P95-1005] FORNIX: Synapse batch write failed: {e}")
+                    logger.info(f"[FORN-E-P95-1005] FORNIX: Synapse batch write failed: {e}")
                     ticket_buffer = [] # Clear to prevent retry loop
             
             # Checkpoint
@@ -250,8 +250,7 @@ class Fornix:
                     self.pond.save_checkpoint(symbol, last_ts, sym_bars, sym_mints)
                 except Exception as e:
                     # [FORN-E-P95-1004] Checkpoint failure
-                    print(f"[FORN-E-P95-1004] FORNIX: Checkpoint failed for {symbol}: {e}")
-            
+                    logger.info(f"[FORN-E-P95-1004] FORNIX: Checkpoint failed for {symbol}: {e}")
             # Progress report every 10 chunks
             if (chunk_start // chunk_size) % 10 == 0 and chunk_start > 0:
                 elapsed = time.time() - sym_start
@@ -274,7 +273,7 @@ class Fornix:
                         )
                     except Exception as e:
                         # FORN-W-P95-1003: Progress callback failure
-                        print(f"[FORN-W-P95-1003] FORNIX: Progress callback failed: {e}")
+                        logger.info(f"[FORN-W-P95-1003] FORNIX: Progress callback failed: {e}")
                         pass
         
         # Flush remaining tickets
@@ -283,16 +282,14 @@ class Fornix:
                 self.pond.write_synapse_batch(ticket_buffer)
             except Exception as e:
                 # [FORN-E-P95-1005] Final write failure
-                print(f"[FORN-E-P95-1005] FORNIX: Final synapse flush failed: {e}")
-        
+                logger.info(f"[FORN-E-P95-1005] FORNIX: Final synapse flush failed: {e}")
         # Final checkpoint
         if last_ts:
             try:
                 self.pond.save_checkpoint(symbol, last_ts, sym_bars, sym_mints)
             except Exception as e:
                 # [FORN-E-P95-1004] Final checkpoint failure
-                print(f"[FORN-E-P95-1004] FORNIX: Final checkpoint failed: {e}")
-        
+                logger.info(f"[FORN-E-P95-1004] FORNIX: Final checkpoint failed: {e}")
         elapsed = time.time() - sym_start
         print(f"  [{symbol}] COMPLETE: {sym_bars:,} bars in {elapsed:.1f}s "
               f"({sym_bars/max(elapsed,0.01):,.0f} bars/s) | "
@@ -365,18 +362,18 @@ class Fornix:
         Returns MINT snapshot for DuckDB replay staging.
         """
         try:
-            # Piece 14: Zero-copy BrainFrame hydration
+            # Zero-copy BrainFrame hydration
             # Avoid duplicating the entire DataFrame; just pass reference
             soul._process_frame(pulse_data, pulse_type_override=pulse_type, symbol_override=symbol)
 
             if pulse_type == "MINT":
                 if soul.frame.command.ready_to_fire:
                     self.total_trades += 1
-                # Piece 16: Standardized machine-readable snapshot
+                # Standardized machine-readable snapshot
                 return soul.frame.to_synapse_dict()
         except Exception as e:
             # [FORN-E-P95-1001] Pulse routing failure
-            print(f"[FORN-E-P95-1001] FORNIX: pulse={pulse_type} symbol={symbol} error={e}")
+            logger.info(f"[FORN-E-P95-1001] FORNIX: pulse={pulse_type} symbol={symbol} error={e}")
         return None
     
     # ------------------------------------------------------------------ #
@@ -393,7 +390,7 @@ class Fornix:
                   f"Skipping Diamond (need >= 50).")
             return False
         
-        print(f"\n[FORNIX] Running Diamond Deep Search on {synapse_count:,} tickets...")
+        logger.info(f"\n[FORNIX] Running Diamond Deep Search on {synapse_count:,} tickets...")
         try:
             diamond = DiamondGland()
             diamond.perform_deep_search()
@@ -420,12 +417,12 @@ class Fornix:
             with open(self.diamond_path, "w") as f:
                 json.dump(existing, f, indent=2)
             
-            print(f"[FORNIX] Diamond output written to {self.diamond_path}")
+            logger.info(f"[FORNIX] Diamond output written to {self.diamond_path}")
             return True
             
         except Exception as e:
             # FORN-E-P96-1002: Diamond search failure
-            print(f"[FORN-E-P96-1002] FORNIX: Diamond search failed: {e}")
+            logger.info(f"[FORN-E-P96-1002] FORNIX: Diamond search failed: {e}")
             traceback.print_exc()
             return False
     
@@ -453,20 +450,18 @@ class Fornix:
         """Prints the final run report."""
         elapsed = time.time() - self.start_time if self.start_time else 0
         
-        print(f"\n{'='*60}")
-        print(f"[FORNIX] HISTORICAL REPLAY COMPLETE")
-        print(f"{'='*60}")
-        print(f"  Run ID:          {self.run_id}")
-        print(f"  Duration:        {elapsed/3600:.2f} hours ({elapsed:.0f}s)")
-        print(f"  Bars Processed:  {self.total_bars_processed:,}")
-        print(f"  MINTs Minted:    {self.total_mints:,}")
-        print(f"  Trades Fired:    {self.total_trades:,}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"[FORNIX] HISTORICAL REPLAY COMPLETE")
+        logger.info(f"{'='*60}")
+        logger.info(f"  Run ID:          {self.run_id}")
+        logger.info(f"  Duration:        {elapsed/3600:.2f} hours ({elapsed:.0f}s)")
+        logger.info(f"  Bars Processed:  {self.total_bars_processed:,}")
+        logger.info(f"  MINTs Minted:    {self.total_mints:,}")
+        logger.info(f"  Trades Fired:    {self.total_trades:,}")
         if elapsed > 0:
-            print(f"  Throughput:      {self.total_bars_processed/elapsed:,.0f} bars/sec")
-        print(f"  Diamond Output:  {self.diamond_path}")
-        print(f"{'='*60}\n")
-
-
+            logger.info(f"  Throughput:      {self.total_bars_processed/elapsed:,.0f} bars/sec")
+        logger.info(f"  Diamond Output:  {self.diamond_path}")
+        logger.info(f"{'='*60}\n")
 # ------------------------------------------------------------------ #
 #  ENTRY POINT                                                        #
 # ------------------------------------------------------------------ #

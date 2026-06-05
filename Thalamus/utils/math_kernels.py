@@ -4,7 +4,7 @@ from numba import njit
 @njit(cache=True)
 def aggregate_ohlcv_njit(open_arr, high_arr, low_arr, close_arr, vol_arr):
     """
-    Piece 9: High-Performance OHLCV Aggregation.
+    High-Performance OHLCV Aggregation.
     NJIT compiled for C-level speed.
     """
     if len(open_arr) == 0:
@@ -21,7 +21,7 @@ def aggregate_ohlcv_njit(open_arr, high_arr, low_arr, close_arr, vol_arr):
 @njit(cache=True)
 def calculate_atr_njit(high_arr, low_arr, close_arr, window):
     """
-    Piece 10: Standardized Vectorized ATR.
+    Standardized Vectorized ATR.
     Uses Numba for C-level speed, eliminating Pandas rolling/shift overhead.
     """
     n = len(high_arr)
@@ -51,7 +51,7 @@ def calculate_atr_njit(high_arr, low_arr, close_arr, window):
 @njit(cache=True)
 def calculate_adx_njit(high_arr, low_arr, close_arr, window):
     """
-    Piece 10: Standardized Vectorized ADX.
+    Standardized Vectorized ADX.
     Ultra-fast directional movement index logic.
     """
     n = len(high_arr)
@@ -105,13 +105,13 @@ def calculate_adx_njit(high_arr, low_arr, close_arr, window):
 
 @njit(cache=True)
 def calculate_vwap_njit(close_arr, vol_arr):
-    """Piece 10: Ultra-fast VWAP Kernel."""
+    """Ultra-fast VWAP Kernel."""
     return np.cumsum(close_arr * vol_arr) / (np.cumsum(vol_arr) + 1e-9)
 
 @njit(cache=True)
 def detect_pulse_indices_njit(ts_arr, win_start, seed_offset, action_offset):
     """
-    Piece 13: Vectorized Pulse Index Detection.
+    Vectorized Pulse Index Detection.
     Identifies the first index where ts >= window_start + offset.
     Returns (seed_idx, action_idx), or -1 if not found.
     """

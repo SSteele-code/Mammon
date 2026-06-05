@@ -23,6 +23,8 @@ from datetime import datetime
 from typing import Optional
 from pathlib import Path
 import pandas as pd
+import logging
+logger = logging.getLogger(__name__)
 
 
 def _install_duckdb_compat_shim():
@@ -93,7 +95,7 @@ def _install_duckdb_compat_shim():
 
 _install_duckdb_compat_shim()
 
-# Piece 220: Circular import guard
+# Circular import guard
 try:
     from Hospital.Optimizer_loop.optimizer_v2.service import PARAM_KEYS
 except (ImportError, ModuleNotFoundError):
@@ -120,7 +122,7 @@ class MultiTransportLibrarian:
     """
     Hippocampus/Archivist: The Multi-Transport Gateway (v2.1).
     
-    Piece 100: Structural (CRITICAL)
+    Structural (CRITICAL)
     The central authority for data persistence across analytical (DuckDB),
     live (Redis), and audit (Timescale) layers.
     """
@@ -160,13 +162,13 @@ class MultiTransportLibrarian:
         if self._local_mode:
             Path(self.duck_db_path).parent.mkdir(parents=True, exist_ok=True)
         
-        # Piece 187: Param Database
+        # Param Database
         self.param_db_path = self.data_path / "ecosystem_params.duckdb"
         self._param_conn = None
-        self._setup_param_tables() # Piece 187
+        self._setup_param_tables()
         
         self._setup_mint_tables()
-        self._run_migrations() # Piece 142
+        self._run_migrations()
 
     def _load_vault_from_file(self) -> dict:
         vault_path = self.root_path / "Hippocampus" / "hormonal_vault.json"
@@ -182,7 +184,7 @@ class MultiTransportLibrarian:
             json.dump(vault_data, f, indent=2)
 
     def _run_migrations(self):
-        """Piece 142: In-place schema migration for Phase 1 fields."""
+        """In-place schema migration for Phase 1 fields."""
         # 1. Synapse Mint (DuckDB)
         conn = self.get_duck_connection()
         new_cols = [
@@ -212,7 +214,7 @@ class MultiTransportLibrarian:
 
     def read_only(self, query: str, params: tuple = (), transport: str = "duckdb"):
         """
-        Piece 162 compatibility: read-only query helper.
+        compatibility: read-only query helper.
 
         Legacy tests expect dict-like rows (`row["status"]`) while runtime code
         uses tuple reads via `read()`. Keep `read()` unchanged and normalize only
@@ -235,12 +237,12 @@ class MultiTransportLibrarian:
         return rows
 
     def setup_schema(self):
-        """Piece 162 compatibility: Maps to _setup_mint_tables and _run_migrations."""
+        """compatibility: Maps to _setup_mint_tables and _run_migrations."""
         self._setup_mint_tables()
         self._run_migrations()
 
     def get_param_connection(self):
-        """Piece 187: DuckDB connection for param sets."""
+        """DuckDB connection for param sets."""
         if self._param_conn is None:
             try:
                 self._param_conn = duckdb.connect(database=str(self.param_db_path))
@@ -253,7 +255,7 @@ class MultiTransportLibrarian:
         return self._param_conn
 
     def _setup_param_tables(self):
-        """Piece 187: Initialize param_sets table in DuckDB."""
+        """Initialize param_sets table in DuckDB."""
         conn = self.get_param_connection()
         conn.execute("""
             CREATE TABLE IF NOT EXISTS param_sets (
@@ -270,7 +272,7 @@ class MultiTransportLibrarian:
         """)
 
     def _setup_mint_tables(self):
-        """Piece 101: Initialize high-volume analytical tables in DuckDB."""
+        """Initialize high-volume analytical tables in DuckDB."""
         conn = self.get_duck_connection()
         
         # 1. Walk Mint (Trajectory Priors)
@@ -320,7 +322,7 @@ class MultiTransportLibrarian:
         """)
 
         # 4. Synapse Mint (Unified State Snapshot)
-        # Piece 220: Expanded to include all 47 param columns
+        # Expanded to include all 47 param columns
         param_columns = ", ".join([f"{k} DOUBLE" for k in PARAM_KEYS])
         conn.execute(f"""
             CREATE TABLE IF NOT EXISTS synapse_mint (
@@ -475,7 +477,7 @@ class MultiTransportLibrarian:
 
     def log_stage_run(self, run_id: str, stage_name: str, status: str, 
                       regime_id: str = "", metrics_json: str = "{}", reason_code: str = ""):
-        """Piece 162 compatibility: Maps to DuckDB write."""
+        """compatibility: Maps to DuckDB write."""
         self.write(
             """
             INSERT INTO optimizer_stage_audit (run_id, ts, stage_name, status, regime_id, metrics_json, reason_code)
@@ -494,7 +496,7 @@ class MultiTransportLibrarian:
     def upsert_candidate_library(self, candidate_id: str, run_id: str, source_stage: str,
                                  param_json: str, regime_id: str = "", diversity_dist: float = 0.0,
                                  support_count: int = 0, kept: int = 1, reason_code: str = ""):
-        """Piece 162 compatibility: Maps to DuckDB write."""
+        """compatibility: Maps to DuckDB write."""
         self.write(
             """
             INSERT INTO optimizer_candidate_library (
@@ -510,7 +512,7 @@ class MultiTransportLibrarian:
         )
 
     def write_score_components(self, run_id: str, candidate_id: str, **kwargs):
-        """Piece 162 compatibility: Persist score decomposition."""
+        """compatibility: Persist score decomposition."""
         self.write(
             """
             INSERT INTO opt_scores_components (
@@ -533,7 +535,7 @@ class MultiTransportLibrarian:
         )
 
     def write_promotion_decision(self, run_id: str, candidate_id: str, **kwargs):
-        """Piece 162 compatibility: Persist promotion gate outcome."""
+        """compatibility: Persist promotion gate outcome."""
         self.write(
             """
             INSERT INTO opt_promotion_decisions (
@@ -557,7 +559,7 @@ class MultiTransportLibrarian:
 
     def write_diversity_metric(self, run_id: str, stage_name: str, entropy: float, 
                                coverage: float, min_distance: float):
-        """Piece 162 compatibility: Persist diversity statistics."""
+        """compatibility: Persist diversity statistics."""
         self.write(
             """
             INSERT INTO opt_diversity_metrics (run_id, stage_name, entropy, coverage, min_distance)
@@ -567,7 +569,7 @@ class MultiTransportLibrarian:
         )
 
     def write_regime_coverage(self, run_id: str, regime_id: str, candidate_count: int, support_count: int):
-        """Piece 162 compatibility: Persist regime support coverage."""
+        """compatibility: Persist regime support coverage."""
         self.write(
             """
             INSERT INTO opt_regime_coverage (run_id, regime_id, candidate_count, support_count)
@@ -578,18 +580,18 @@ class MultiTransportLibrarian:
 
     def write_bayesian_diagnostic(self, run_id: str, candidate_id: str, mu: float, sigma: float, 
                                   acquisition: float, effective_sample_size: float):
-        """Piece 162 compatibility: Stub for Bayesian telemetry."""
+        """compatibility: Stub for Bayesian telemetry."""
         pass
 
     def write_batch(self, table: str, cols: list, rows: list, transport: str = "duckdb"):
-        """Piece 162 compatibility: Maps to DuckDB executemany."""
+        """compatibility: Maps to DuckDB executemany."""
         if transport == "duckdb":
             conn = self.get_duck_connection()
             placeholders = ", ".join(["?"] * len(cols))
             conn.executemany(f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({placeholders})", rows)
 
     def install_gold_params(self, params: dict, fitness: float, origin: str, regime_id: str = "GLOBAL"):
-        """Piece 188: Records new Gold and timestamps old Gold."""
+        """Records new Gold and timestamps old Gold."""
         conn = self.get_param_connection()
         now_ts = datetime.now()
         
@@ -610,8 +612,7 @@ class MultiTransportLibrarian:
             "origin": origin
         }
         self.set_hormonal_vault(vault)
-        print(f"   [LIBRARIAN] Piece 188: New GOLD installed: {param_id}")
-
+        logger.info(f"   [LIBRARIAN] Piece 188: New GOLD installed: {param_id}")
     def record_param_set(self, param_id: str, tier: str, params: dict, regime_id: str, 
                          fitness: float, origin: str, active_from=None):
         """Piece 189-192: Generic param set writer."""
@@ -623,12 +624,11 @@ class MultiTransportLibrarian:
         """, (param_id, tier.upper(), json.dumps(params), regime_id, fitness, now_ts, origin))
 
     def demote_to_bronze(self, param_id: str):
-        """Piece 192: Marks a parameter set as Bronze (Retired)."""
+        """Marks a parameter set as Bronze (Retired)."""
         conn = self.get_param_connection()
         now_ts = datetime.now()
         conn.execute("UPDATE param_sets SET tier = 'BRONZE', active_to = ? WHERE id = ?", (now_ts, param_id))
-        print(f"   [LIBRARIAN] Piece 192: Param set {param_id} demoted to BRONZE.")
-
+        logger.info(f"   [LIBRARIAN] Piece 192: Param set {param_id} demoted to BRONZE.")
     def record_silver_candidate(self, params: dict, fitness: float, regime_id: str, source: str):
         """Piece 190/197: Records a Silver candidate with cap enforcement (20)."""
         vault = self.get_hormonal_vault()
@@ -648,13 +648,11 @@ class MultiTransportLibrarian:
         
         silver_list.append(new_entry)
         
-        # Piece 197/265: Enforce configurable silver cap from Gold params
         gold_cfg = vault.get("gold", {})
         cap = int(gold_cfg.get("params", {}).get("silver_cap", 20))
         if len(silver_list) > cap:
             removed = silver_list.pop(0)
-            print(f"   [LIBRARIAN] Piece 197: Silver cap ({cap}) reached. Evicted: {removed['id']}")
-            
+            logger.info(f"   [LIBRARIAN] Piece 197: Silver cap ({cap}) reached. Evicted: {removed['id']}")
         vault["silver"] = silver_list
         self.set_hormonal_vault(vault)
         
@@ -663,7 +661,7 @@ class MultiTransportLibrarian:
 
     def get_param_history(self, tier: str = None, regime_id: str = None, 
                           min_fitness: float = None, limit: int = 100) -> list:
-        """Piece 193: Reader for parameter set history."""
+        """Reader for parameter set history."""
         conn = self.get_param_connection()
         sql = "SELECT * FROM param_sets WHERE 1=1"
         params = []
@@ -686,7 +684,7 @@ class MultiTransportLibrarian:
         return rows
 
     def mint_walk(self, data: dict):
-        """Piece 101: Atomic Walk Write."""
+        """Atomic Walk Write."""
         conn = self.get_duck_connection()
         conn.execute("""
             INSERT INTO walk_mint (ts, symbol, regime_id, mu, sigma, p_jump, confidence, mode, pulse_type)
@@ -698,7 +696,7 @@ class MultiTransportLibrarian:
         ))
 
     def mint_monte(self, data: dict):
-        """Piece 101: Atomic Monte Write."""
+        """Atomic Monte Write."""
         conn = self.get_duck_connection()
         conn.execute("""
             INSERT INTO monte_mint (ts, symbol, pulse_type, n_steps, paths_per_lane, price, atr, stop_level, 
@@ -712,7 +710,7 @@ class MultiTransportLibrarian:
         ))
 
     def mint_optimizer(self, data: dict):
-        """Piece 101: Atomic Optimizer Write."""
+        """Atomic Optimizer Write."""
         conn = self.get_duck_connection()
         conn.execute("""
             INSERT INTO optimizer_mint (ts, symbol, regime_id, fitness, params_json, source, mode)
@@ -723,8 +721,8 @@ class MultiTransportLibrarian:
         ))
 
     def mint_synapse(self, data: dict):
-        """Piece 16: Atomic Unified Synapse Write."""
-        # Piece 220: Prepare dynamic param columns
+        """Atomic Unified Synapse Write."""
+        # Prepare dynamic param columns
         p_keys = []
         p_vals = []
         for k in PARAM_KEYS:
@@ -759,25 +757,25 @@ class MultiTransportLibrarian:
     def get_duck_connection(self, read_only: bool = False):
         """
         Analytical 'Big Data' Gateway (DuckDB).
-        Piece 101: Consolidate all 'Mint' tables here.
+        Consolidate all 'Mint' tables here.
         V5: Finalized DuckDB-first architecture (SQLite logic purged).
         """
         if self._duck_conn is None:
             try:
                 self._duck_conn = duckdb.connect(database=str(self.duck_db_path), read_only=read_only)
             except Exception as e:
-                # Piece 162: Robust fallback for locked files or permission issues
+                # Robust fallback for locked files or permission issues
                 fallback = self.root_path / "runtime" / ".tmp_test_local"
                 fallback.mkdir(parents=True, exist_ok=True)
                 alt = fallback / f"ecosystem_synapse_{uuid.uuid4().hex}.duckdb"
-                print(f"   [LIBRARIAN_WARN] Primary DuckDB locked or failed ({e}). Using volatile fallback: {alt}")
+                logger.warning(f"   [LIBRARIAN_WARN] Primary DuckDB locked or failed ({e}). Using volatile fallback: {alt}")
                 self._duck_conn = duckdb.connect(database=str(alt), read_only=False)
         return self._duck_conn
 
     def get_redis_connection(self):
         """
         Nervous System 'Live' Gateway (Redis).
-        Piece 114: Sub-millisecond BrainFrame storage and cross-lobe communication.
+        Sub-millisecond BrainFrame storage and cross-lobe communication.
         V5: Fail-closed in LIVE/PAPER modes to prevent unpersisted state drift.
         """
         if self._redis_conn is None:
@@ -792,14 +790,14 @@ class MultiTransportLibrarian:
                 self._redis_conn.ping()
             except Exception as e:
                 mode = os.getenv("MAMMON_MODE", "DRY_RUN").upper()
-                print(f"   [LIBRARIAN_CRITICAL] Redis connection FAILED in {mode} mode: {e}")
+                logger.critical(f"   [LIBRARIAN_CRITICAL] Redis connection FAILED in {mode} mode: {e}")
                 raise ConnectionError(f"[HIPP-E-INFRA-901] REDIS_UNAVAILABLE mode={mode} err={e}")
         return self._redis_conn
 
     def get_timescale_connection(self):
         """
         Immutable Ledger 'Audit' Gateway (TimescaleDB).
-        Piece 116: Treasury Ledgers and Audit Logs with ACID compliance.
+        Treasury Ledgers and Audit Logs with ACID compliance.
         V5: Fail-closed in LIVE/PAPER modes to ensure audit trail integrity.
         """
         if self._timescale_conn is None:
@@ -816,12 +814,12 @@ class MultiTransportLibrarian:
                 self._timescale_conn.autocommit = True
             except Exception as e:
                 mode = os.getenv("MAMMON_MODE", "DRY_RUN").upper()
-                print(f"   [LIBRARIAN_CRITICAL] Timescale connection FAILED in {mode} mode: {e}")
+                logger.critical(f"   [LIBRARIAN_CRITICAL] Timescale connection FAILED in {mode} mode: {e}")
                 raise ConnectionError(f"[HIPP-E-INFRA-902] TIMESCALE_UNAVAILABLE mode={mode} err={e}")
         return self._timescale_conn
 
     def get_hormonal_vault(self) -> dict:
-        """Piece 115: Atomic Vault Read from Redis HASH."""
+        """Atomic Vault Read from Redis HASH."""
         redis_conn = self.get_redis_connection()
         key = "mammon:hormonal_vault"
         
@@ -838,7 +836,7 @@ class MultiTransportLibrarian:
         return {k: json.loads(v) for k, v in raw_vault.items()}
 
     def set_hormonal_vault(self, vault_data: dict):
-        """Piece 115: Atomic Vault Write to Redis HASH."""
+        """Atomic Vault Write to Redis HASH."""
         redis_conn = self.get_redis_connection()
         key = "mammon:hormonal_vault"
         
@@ -869,13 +867,13 @@ class MultiTransportLibrarian:
             raise ValueError(f"Unsupported transport for query: {transport}")
 
     def read(self, sql: str, params: tuple = (), transport: str = "duckdb"):
-        """Piece 116: Proxy to query for read_only operations."""
+        """Proxy to query for read_only operations."""
         return self.query(sql, params, transport)
 
     def write(self, sql: str, params: tuple = (), transport: str = "duckdb"):
         """
         Standardized write executor (INSERT/UPDATE/DELETE).
-        Piece 116: Support for TimescaleDB ledgers.
+        Support for TimescaleDB ledgers.
         V5: Routed through Telepathy for non-blocking execution.
         """
         try:

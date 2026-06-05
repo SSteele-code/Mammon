@@ -33,6 +33,8 @@ from Pituitary.gland.service import PituitaryGland
 from Brain_Stem.pons_execution_cost.service import PonsExecutionCost
 from Medulla.allocation_gland.service import AllocationGland
 from Hippocampus.crawler.service import ParamCrawler
+import logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -69,9 +71,8 @@ class Orchestrator:
         self.frame.standards = self.vault.get("gold", {}).get("params", {})
         self.frame.market.execution_mode = str(self.config.get("execution_mode", "DRY_RUN")).upper()
         
-        print(f"[SOUL] {self.run_id} Gold Mirror Active (ID: {self.vault.get('gold', {}).get('id', 'UNK')})")
-        print(f"[SOUL] {self.run_id} Mode Canvas: {self.frame.market.execution_mode}")
-        
+        logger.info(f"[SOUL] {self.run_id} Gold Mirror Active (ID: {self.vault.get('gold', {}).get('id', 'UNK')})")
+        logger.info(f"[SOUL] {self.run_id} Mode Canvas: {self.frame.market.execution_mode}")
         # Supporting Engines
         self.furnace = VolumeFurnaceOrchestrator(
             simulation_mode=False,
@@ -97,15 +98,14 @@ class Orchestrator:
             from Hippocampus.Archivist.ui_scribe import UiScribe
             self._ui_scribe = UiScribe()
         except Exception as _ue:
-            print(f"[SOUL_WARN] UiScribe unavailable: {_ue}")
+            logger.warning(f"[SOUL_WARN] UiScribe unavailable: {_ue}")
             self._ui_scribe = None
 
         # V6: Optical Tract Subscription
         self.optical_tract = optical_tract
         if self.optical_tract:
             self.optical_tract.subscribe(self)
-            print(f"[SOUL] {self.run_id} Subscribed to Optical Tract")
-
+            logger.info(f"[SOUL] {self.run_id} Subscribed to Optical Tract")
     def set_execution_mode(self, mode: str):
         mode_u = str(mode or "DRY_RUN").upper()
         self.config["execution_mode"] = mode_u
@@ -119,7 +119,7 @@ class Orchestrator:
                     lobe.set_execution_mode(mode_u)
                 except Exception as e:
                     # SOUL-W-P35-206: Lobe rebind failure
-                    print(f"[SOUL-W-P35-206] Lobe rebind failed for {lobe}: {e}")
+                    logger.info(f"[SOUL-W-P35-206] Lobe rebind failed for {lobe}: {e}")
                     pass
 
     def on_data_received(self, data: pd.DataFrame):
@@ -148,8 +148,7 @@ class Orchestrator:
         self.lobes[name] = instance
         if hasattr(instance, "mode"):
             instance.mode = str(self.config.get("execution_mode", "DRY_RUN")).upper()
-        print(f"[SOUL] {self.run_id} Registered Lobe: {name} (Strict Gold Active)")
-
+        logger.info(f"[SOUL] {self.run_id} Registered Lobe: {name} (Strict Gold Active)")
     def pulse(self, symbols: List[str], is_crypto: bool = True, data_override: pd.DataFrame = None):
         if data_override is not None:
             self._process_frame(data_override)
@@ -162,7 +161,7 @@ class Orchestrator:
             thal_dur = time.perf_counter() - thal_start
             self.pulse_log.append({"timestamp": datetime.now().isoformat(), "lobe": "Thalamus", "duration": thal_dur})
         except Exception as e:
-            print(f"[SOUL-F-P32-201] SOUL_THALAMUS_PULSE_FAILED: {e}")
+            logger.critical(f"[SOUL-F-P32-201] SOUL_THALAMUS_PULSE_FAILED: {e}")
             raise
 
     def _process_frame(self, data: pd.DataFrame):
@@ -198,7 +197,7 @@ class Orchestrator:
                 try:
                     can_trade = bool(trade_gate_provider())
                 except Exception as e:
-                    print(f"[SOUL-W-P35-207] SOUL: Trade gate provider failed: {e}")
+                    logger.info(f"[SOUL-W-P35-207] SOUL: Trade gate provider failed: {e}")
                     can_trade = False
 
             # 1b. TIMING GUARD
@@ -208,7 +207,7 @@ class Orchestrator:
                     elapsed = time.time() - self.last_action_ts
                     if elapsed > 30.0:
                         timing_inhibited = True
-                        print(f"[SOUL] TIMING_INHIBIT: MINT delayed ({elapsed:.1f}s > 30s).")
+                        logger.info(f"[SOUL] TIMING_INHIBIT: MINT delayed ({elapsed:.1f}s > 30s).")
                 self.last_action_ts = None
             elif pulse_type == "ACTION":
                 self.last_action_ts = time.time()
@@ -238,8 +237,7 @@ class Orchestrator:
                         self.furnace.handle_frame(pulse_type="MINT", frame=grounding_frame, stage_group="CALCULATE")
                         self.stable_frame = None
                 except Exception as fe:
-                    print(f"[SOUL-E-P35-208] Interleaved Furnace failed: {fe}")
-
+                    logger.error(f"[SOUL-E-P35-208] Interleaved Furnace failed: {fe}")
             # 6. GATED DECISIONS (ACTION)
             if self.frame.structure.tier1_signal == 1:
                 if pulse_type == "ACTION" and lh_ready:
@@ -292,8 +290,7 @@ class Orchestrator:
                 hook_status["amygdala"] = "ok"
             except Exception as e:
                 hook_status["amygdala"] = f"error:{type(e).__name__}"
-                print(f"[SOUL-E-P33-205] maintenance error: {e}")
-
+                logger.error(f"[SOUL-E-P33-205] maintenance error: {e}")
             if pulse_type == "MINT" and self._ui_scribe is not None:
                 try:
                     self._ui_scribe.write_mint(self.frame)
@@ -313,14 +310,12 @@ class Orchestrator:
                     self.crawler.crawl(pulse_type, self.frame)
                     hook_status["crawler"] = "ok"
                 except Exception as ce:
-                    print(f"[SOUL-E-P35-210] crawler error: {ce}")
-
+                    logger.error(f"[SOUL-E-P35-210] crawler error: {ce}")
             # Canonical lifecycle pulse is Soul-owned and must not drift from lobe mutations.
             self.frame.market.pulse_type = pulse_type
 
         except Exception as e:
-            print(f"[SOUL-F-P35-209] SOUL_CRITICAL: Cycle failed: {e}")
-
+            logger.critical(f"[SOUL-F-P35-209] SOUL_CRITICAL: Cycle failed: {e}")
         pulse_duration = time.perf_counter() - pulse_start
         self._log_pulse(metrics, pulse_duration, hook_status)
 
@@ -335,7 +330,7 @@ class Orchestrator:
         except Exception as e:
             err_msg = f"{type(e).__name__}: {str(e)[:50]}"
             metrics_list.append(LobeMetrics(name, time.perf_counter() - start, f"error: {err_msg}", False, pulse_type))
-            print(f"[SOUL_LOBE_ERROR] lobe={name} error={err_msg}")
+            logger.error(f"[SOUL_LOBE_ERROR] lobe={name} error={err_msg}")
             raise
 
     def _log_pulse(self, metrics: List[LobeMetrics], total_duration: float, hooks: Dict[str, str] = None):
@@ -370,7 +365,7 @@ class Orchestrator:
 
     def simulate_hot_reload(self):
         """
-        Piece 212: Manual/Simulated Hot-Reload.
+        Manual/Simulated Hot-Reload.
         Relocated from Fornix to centralize orchestration authority.
         """
         try:
@@ -384,21 +379,20 @@ class Orchestrator:
                 for lobe in self.lobes.values():
                     if hasattr(lobe, "config") and lobe.config is not None:
                         lobe.config.update(gold)
-                print(f"[SOUL] event=sim_hot_reload status=success")
+                logger.info(f"[SOUL] event=sim_hot_reload status=success")
         except Exception as e:
             # [SOUL-E-P14-213] Sim-hot-reload failed
-            print(f"[SOUL-E-P14-213] SIM_HOT_RELOAD_FAILED: {e}")
-
+            logger.error(f"[SOUL-E-P14-213] SIM_HOT_RELOAD_FAILED: {e}")
     def _check_vault_mutation(self):
         try:
             vault = self.librarian.get_hormonal_vault()
             new_id = vault.get("gold", {}).get("id")
             if new_id != self.vault.get("gold", {}).get("id"):
-                print(f"[SOUL] Gold Mutation: {new_id}. Hot-reloading...")
+                logger.info(f"[SOUL] Gold Mutation: {new_id}. Hot-reloading...")
                 self.vault = vault
                 self.frame.standards = vault["gold"]["params"]
                 for lobe in self.lobes.values():
                     if hasattr(lobe, "config") and lobe.config is not None:
                         lobe.config.update(self.frame.standards)
         except Exception as e:
-            print(f"[SOUL-E-P14-212] Hot-reload failed: {e}")
+            logger.error(f"[SOUL-E-P14-212] Hot-reload failed: {e}")

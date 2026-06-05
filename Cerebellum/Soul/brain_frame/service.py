@@ -48,14 +48,14 @@ class EnvironmentSlot:
     atr_avg: float = 0.0
     adx: float = 0.0
     volume_score: float = 0.0
-    bid_ask_bps: float = 0.0 # Piece 20
-    spread_score: float = 0.0 # Piece 21
-    spread_regime: str = "UNKNOWN" # Piece 22
-    spread_inputs: dict = field(default_factory=dict) # Piece 23
+    bid_ask_bps: float = 0.0
+    spread_score: float = 0.0
+    spread_regime: str = "UNKNOWN"
+    spread_inputs: dict = field(default_factory=dict)
 
 @dataclass
 class ValuationSlot:
-    """Piece 24: Mean-Reversion Valuation Metrics."""
+    """Mean-Reversion Valuation Metrics."""
     mean: float = 0.0
     std_dev: float = 0.0
     upper_band: float = 0.0
@@ -65,7 +65,7 @@ class ValuationSlot:
 
 @dataclass
 class ExecutionSlot:
-    """Piece 26: Pre-trade Friction (Pons)."""
+    """Pre-trade Friction (Pons)."""
     expected_slippage_bps: float = 0.0
     expected_fee_bps: float = 0.0
     total_cost_bps: float = 0.0
@@ -97,8 +97,8 @@ class BrainFrame:
         self.structure = StructureSlot()
         self.risk = RiskSlot()
         self.environment = EnvironmentSlot()
-        self.valuation = ValuationSlot() # Piece 25
-        self.execution = ExecutionSlot() # Piece 27
+        self.valuation = ValuationSlot()
+        self.execution = ExecutionSlot()
         self.command = CommandSlot()
         self.standards = {} # Mirrored Gold Params
 
@@ -106,17 +106,17 @@ class BrainFrame:
         """Clears ephemeral decision state while preserving context."""
         self.market.pulse_type = pulse_type
         
-        # Piece 33: Reset spread fields
+        # Reset spread fields
         self.environment.bid_ask_bps = 0.0
         self.environment.spread_score = 0.0
         self.environment.spread_regime = "UNKNOWN"
         self.environment.spread_inputs = {}
         
-        # Piece 33: Reset new slots
+        # Reset new slots
         self.valuation = ValuationSlot()
         self.execution = ExecutionSlot()
         
-        # Piece 33: Reset allocation fields
+        # Reset allocation fields
         self.command.ready_to_fire = False
         self.command.approved = 0
         self.command.reason = "WAITING"
@@ -127,7 +127,7 @@ class BrainFrame:
         self.command.cost_adjusted_conviction = 0.0
 
     def check_in(self):
-        """Piece 114: Sub-millisecond Redis Check-In."""
+        """Sub-millisecond Redis Check-In."""
         redis = librarian.get_redis_connection()
         mode = str(self.market.execution_mode).upper()
         symbol = str(self.market.symbol).upper()
@@ -146,7 +146,7 @@ class BrainFrame:
 
     @classmethod
     def check_out(cls, symbol: str, mode: str) -> Optional['BrainFrame']:
-        """Piece 114: Sub-millisecond Redis Check-Out."""
+        """Sub-millisecond Redis Check-Out."""
         redis = librarian.get_redis_connection()
         mode = str(mode).upper()
         symbol = str(symbol).upper()
@@ -189,9 +189,9 @@ class BrainFrame:
         frame.environment.atr_avg = float(payload.get("atr_avg", 0.0))
         frame.environment.adx = float(payload.get("adx", 0.0))
         frame.environment.volume_score = float(payload.get("volume_score", 0.0))
-        frame.environment.bid_ask_bps = float(payload.get("bid_ask_bps", 0.0)) # Piece 41
-        frame.environment.spread_score = float(payload.get("spread_score", 0.0)) # Piece 41
-        frame.environment.spread_regime = str(payload.get("spread_regime", "UNKNOWN")) # Piece 41
+        frame.environment.bid_ask_bps = float(payload.get("bid_ask_bps", 0.0))
+        frame.environment.spread_score = float(payload.get("spread_score", 0.0))
+        frame.environment.spread_regime = str(payload.get("spread_regime", "UNKNOWN"))
         
         # Hydrate Valuation Slot (Piece 41)
         frame.valuation.mean = float(payload.get("val_mean", 0.0))
@@ -208,9 +208,9 @@ class BrainFrame:
         frame.command.final_confidence = float(payload.get("final_confidence", 0.0))
         frame.command.sizing_mult = float(payload.get("sizing_mult", 0.0))
         frame.command.ready_to_fire = bool(payload.get("ready_to_fire", False))
-        frame.command.qty = float(payload.get("qty", 0.0)) # Piece 41
-        frame.command.notional = float(payload.get("notional", 0.0)) # Piece 41
-        frame.command.cost_adjusted_conviction = float(payload.get("cost_adjusted_conviction", 0.0)) # Piece 41
+        frame.command.qty = float(payload.get("qty", 0.0))
+        frame.command.notional = float(payload.get("notional", 0.0))
+        frame.command.cost_adjusted_conviction = float(payload.get("cost_adjusted_conviction", 0.0))
         
         return frame
 
@@ -289,9 +289,9 @@ class BrainFrame:
             "atr_avg": self.environment.atr_avg,
             "adx": self.environment.adx,
             "volume_score": self.environment.volume_score,
-            "bid_ask_bps": self.environment.bid_ask_bps, # Piece 40
-            "spread_score": self.environment.spread_score, # Piece 40
-            "spread_regime": self.environment.spread_regime, # Piece 40
+            "bid_ask_bps": self.environment.bid_ask_bps,
+            "spread_score": self.environment.spread_score,
+            "spread_regime": self.environment.spread_regime,
             # Valuation (Piece 40)
             "val_mean": self.valuation.mean,
             "val_std_dev": self.valuation.std_dev,
@@ -305,7 +305,7 @@ class BrainFrame:
             "final_confidence": self.command.final_confidence,
             "sizing_mult": self.command.sizing_mult,
             "ready_to_fire": int(self.command.ready_to_fire),
-            "qty": self.command.qty, # Piece 40
-            "notional": self.command.notional, # Piece 40
-            "cost_adjusted_conviction": self.command.cost_adjusted_conviction # Piece 40
+            "qty": self.command.qty,
+            "notional": self.command.notional,
+            "cost_adjusted_conviction": self.command.cost_adjusted_conviction
         }

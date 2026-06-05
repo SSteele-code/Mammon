@@ -4,6 +4,8 @@ from typing import Any, Dict, Optional
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
 from Hippocampus.Archivist.librarian import librarian
 from Hospital.Optimizer_loop.optimizer_v2 import OptimizerV2Engine, V2Budget
+import logging
+logger = logging.getLogger(__name__)
 
 
 class VolumeFurnaceOrchestrator:
@@ -36,7 +38,7 @@ class VolumeFurnaceOrchestrator:
         self.opt_lib = librarian
         self.budget = V2Budget()
         
-        # Piece 209: Split Optimization - Initialize 5 domain-specific engines
+        # Split Optimization - Initialize 5 domain-specific engines
         self.domains = ["RISK", "STRATEGY", "COUNCIL", "SYNTHESIS", "EXECUTION"]
         self.engines: Dict[str, OptimizerV2Engine] = {
             domain: OptimizerV2Engine(
@@ -123,7 +125,7 @@ class VolumeFurnaceOrchestrator:
         """
         Cadence-aligned Stage A-H execution.
         """
-        # Piece 14: Furnace only fires at MINT
+        # Furnace only fires at MINT
         if not enforce_pulse_gate(pulse_type, ["MINT"], "Hospital"):
             return
 
@@ -193,7 +195,7 @@ class VolumeFurnaceOrchestrator:
         Frame-truth entrypoint used by Soul/ForNix orchestration.
         Supports deterministic 15m cadence (SCOUT -> PRIME -> CALCULATE).
         """
-        # Piece 14: Furnace ONLY fires on MINT
+        # Furnace ONLY fires on MINT
         if not enforce_pulse_gate(pulse_type, ["MINT"], "Hospital"):
             return
 
@@ -225,7 +227,7 @@ class VolumeFurnaceOrchestrator:
         # MINT 2: PRIME (Stages D-E)
         # MINT 3: CALCULATE (Stages F-H)
         
-        # Piece 210: Auto-dispatch based on mint_count
+        # Auto-dispatch based on mint_count
         if stage_group == "AUTO":
             cycle_pos = self.mint_count % 3
             if cycle_pos == 1:
@@ -268,8 +270,7 @@ class VolumeFurnaceOrchestrator:
             self.last_error = msg
             self.last_summary = {}
             self._record_decision("PIPELINE_ERROR", pulse_type=pulse_type, regime_id=regime_id, error=str(exc))
-            print(msg)
-
+            logger.info(msg)
     def get_state(self) -> Dict[str, Any]:
         return {
             "run_id": self.run_id,
@@ -287,8 +288,7 @@ class VolumeFurnaceOrchestrator:
 
     def shutdown(self):
         self.shutdown_requested = True
-        print(f"[FURNACE_V2] event=shutdown run_id={self.run_id}")
-
+        logger.info(f"[FURNACE_V2] event=shutdown run_id={self.run_id}")
     @staticmethod
     def _seed_from_run_id(run_id: str) -> int:
         seed = 0

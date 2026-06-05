@@ -4,10 +4,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 
 def get_required_schema_files(root: Path) -> List[str]:
-    """Piece 70: Reads canonical schema list from central Navigator."""
+    """Reads canonical schema list from central Navigator."""
     nav_path = root / "Hippocampus" / "Context" / "NAVIGATOR.md"
     if not nav_path.exists():
         return []
@@ -26,7 +28,7 @@ def get_required_schema_files(root: Path) -> List[str]:
                     path = line.split("`")[1]
                     files.append(path)
     except Exception as e:
-        print(f"[HIPP-E-P70-708] FAILED_TO_READ_NAVIGATOR: {e}")
+        logger.info(f"[HIPP-E-P70-708] FAILED_TO_READ_NAVIGATOR: {e}")
     return files
 
 
@@ -75,7 +77,7 @@ def ensure_schema_versions(root: Path = None) -> List[str]:
                 con.close()
             except Exception as e:
                 # HIPP-E-P70-706: Schema version check exception
-                print(f"[HIPP-E-P70-706] Schema version check failed for {db_path}: {e}")
+                logger.info(f"[HIPP-E-P70-706] Schema version check failed for {db_path}: {e}")
                 continue
         touched.append(str(db_path))
     return touched

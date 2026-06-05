@@ -22,6 +22,8 @@ from Cerebellum.Soul.utils.timing import enforce_pulse_gate
 from Hippocampus.Archivist.librarian import librarian
 from Thalamus.gland.service import SmartGland
 from Thalamus.utils.math_kernels import aggregate_ohlcv_njit
+import logging
+logger = logging.getLogger(__name__)
 
 CANONICAL_COLS = ["open", "high", "low", "close", "volume", "symbol", "bid", "ask", "bid_size", "ask_size", "pulse_type"]
 
@@ -63,11 +65,10 @@ class Thalamus:
         """
         stream = self.crypto_stream if is_crypto else self.stock_stream
         if not stream:
-            print("[THALAMUS_ERROR] Stream client not initialized. Check credentials.")
+            logger.error("[THALAMUS_ERROR] Stream client not initialized. Check credentials.")
             return
 
-        print(f"[THALAMUS] Wiring Real-time Stream for {symbols}...")
-        
+        logger.info(f"[THALAMUS] Wiring Real-time Stream for {symbols}...")
         # Subscribe to bars
         if is_crypto:
             stream.subscribe_bars(self._on_bar, *symbols)
@@ -102,7 +103,7 @@ class Thalamus:
             df = pd.DataFrame([raw_dict])
             df = df.set_index("ts")
             
-            # Piece 10: Fetch Snapshot for Bid/Ask in stream callback
+            # Fetch Snapshot for Bid/Ask in stream callback
             try:
                 is_crypto = "/" in bar.symbol or len(bar.symbol) > 6
                 snapshot = self.get_snapshot([bar.symbol], is_crypto=is_crypto)
@@ -119,7 +120,7 @@ class Thalamus:
                     df["ask_size"] = 0.0
             except Exception as e:
                 # THAL-E-P9-103: STREAM_QUOTE_FETCH_FAILURE
-                print(f"[THAL-E-P9-103] THALAMUS: Stream snapshot failed: {e}")
+                logger.error(f"[THAL-E-P9-103] THALAMUS: Stream snapshot failed: {e}")
                 df["bid"] = df["close"]
                 df["ask"] = df["close"]
                 df["bid_size"] = 0.0
@@ -130,8 +131,7 @@ class Thalamus:
             
         except Exception as e:
             # THAL-E-P25-103: Real-time bar processing failure
-            print(f"[THAL-E-P25-103] THALAMUS: Real-time bar processing failed: {e}")
-
+            logger.error(f"[THAL-E-P25-103] THALAMUS: Real-time bar processing failed: {e}")
     def _pulse_from_db(self, symbol: str, limit: int = 50) -> pd.DataFrame:
         """
         Target #16: Logic Drift Fix.
@@ -151,7 +151,7 @@ class Thalamus:
             
         except Exception as e:
             # THAL-E-P16-104: DB pulse fetch failure
-            print(f"[THAL-E-P16-104] THALAMUS: DB pulse fetch failed: {e}")
+            logger.error(f"[THAL-E-P16-104] THALAMUS: DB pulse fetch failed: {e}")
             return pd.DataFrame()
 
     def warmup_context(self, symbols: List[str], is_crypto: bool = True):
@@ -159,7 +159,7 @@ class Thalamus:
         Target #26: Buffer Warmup.
         Pulls 60m of historical 1m bars to prime the SmartGland context.
         """
-        print(f"[THALAMUS] Warming up context for {symbols} (60m historical)...")
+        logger.info(f"[THALAMUS] Warming up context for {symbols} (60m historical)...")
         end = datetime.now(timezone.utc)
         start = end - timedelta(minutes=60)
         
@@ -171,14 +171,12 @@ class Thalamus:
                 # 2. Ingest into SmartGland to fill context_df
                 # We ignore the returned pulses during warmup to prevent premature execution
                 self.gland.ingest(df)
-                print(f"   [THALAMUS] Warmup successful. Context bars: {len(self.gland.context_df)}")
+                logger.info(f"   [THALAMUS] Warmup successful. Context bars: {len(self.gland.context_df)}")
             else:
-                print("   [THALAMUS_WARN] Warmup returned no data. Context remains cold.")
-                
+                logger.warning("   [THALAMUS_WARN] Warmup returned no data. Context remains cold.")
         except Exception as e:
             # THAL-E-P26-105: Warmup context failure
-            print(f"[THAL-E-P26-105] THALAMUS: Warmup context failed: {e}")
-
+            logger.error(f"[THAL-E-P26-105] THALAMUS: Warmup context failed: {e}")
     def pulse(self, symbols: List[str], timeframe=TimeFrame.Minute, start=None, end=None, is_crypto=True, source="ALPACA", pulse_type="ACTION"):
         """Target #23: Timing Invariant check."""
         if not enforce_pulse_gate(pulse_type, ["SEED", "ACTION", "MINT"], "Thalamus"):
@@ -194,7 +192,7 @@ class Thalamus:
         if not df.empty:
             df["pulse_type"] = pulse_type
             
-            # Piece 4: Fetch Snapshot for Bid/Ask (if not historical/DB)
+            # Fetch Snapshot for Bid/Ask (if not historical/DB)
             if source == "ALPACA":
                 try:
                     # Determine crypto status from librarian or symbols
@@ -208,14 +206,14 @@ class Thalamus:
                             df.loc[mask, "bid_size"] = float(quote.bid_size)
                             df.loc[mask, "ask_size"] = float(quote.ask_size)
                         else:
-                            # Piece 9: Fallback
+                            # Fallback
                             df.loc[mask, "bid"] = df.loc[mask, "close"]
                             df.loc[mask, "ask"] = df.loc[mask, "close"]
                             df.loc[mask, "bid_size"] = 0.0
                             df.loc[mask, "ask_size"] = 0.0
                 except Exception as e:
                     # THAL-E-P4-103: QUOTE_FETCH_FAILURE (Piece 9)
-                    print(f"[THAL-E-P4-103] THALAMUS: Snapshot fetch failed: {e}")
+                    logger.error(f"[THAL-E-P4-103] THALAMUS: Snapshot fetch failed: {e}")
                     df["bid"] = df["close"]
                     df["ask"] = df["close"]
                     df["bid_size"] = 0.0
@@ -276,7 +274,7 @@ class Thalamus:
                 passthrough_cols=["pulse_type"],
             )
 
-            # Piece 4: Fetch Snapshot for Bid/Ask in live drip
+            # Fetch Snapshot for Bid/Ask in live drip
             if not normalized_agg.empty:
                 try:
                     symbol = normalized_agg["symbol"].iloc[-1]
@@ -291,14 +289,14 @@ class Thalamus:
                         normalized_agg["bid_size"] = float(quote.bid_size)
                         normalized_agg["ask_size"] = float(quote.ask_size)
                     else:
-                        # Piece 9: Fallback
+                        # Fallback
                         normalized_agg["bid"] = normalized_agg["close"]
                         normalized_agg["ask"] = normalized_agg["close"]
                         normalized_agg["bid_size"] = 0.0
                         normalized_agg["ask_size"] = 0.0
                 except Exception as e:
                     # THAL-E-P9-103: QUOTE_FETCH_FAILURE (Piece 9)
-                    print(f"[THAL-E-P9-103] THALAMUS: Drip snapshot failed: {e}")
+                    logger.error(f"[THAL-E-P9-103] THALAMUS: Drip snapshot failed: {e}")
                     normalized_agg["bid"] = normalized_agg["close"]
                     normalized_agg["ask"] = normalized_agg["close"]
                     normalized_agg["bid_size"] = 0.0
@@ -386,7 +384,7 @@ class Thalamus:
 
         missing = [c for c in CANONICAL_COLS if c not in df.columns]
         if missing:
-            # Piece 9: Fill missing bid/ask if other canonicals are present
+            # Fill missing bid/ask if other canonicals are present
             price_cols = ["bid", "ask", "bid_size", "ask_size"]
             if all(c in df.columns for c in ["open", "high", "low", "close", "volume", "symbol"]):
                 for pc in price_cols:
@@ -423,9 +421,8 @@ class Thalamus:
 
         df = df.sort_index()
         if df.index.has_duplicates:
-            # Piece 24: Use standardized Numba kernel for high-velocity aggregation
-            print(f"[THALAMUS] Vectorized aggregation of {df.index.duplicated().sum()} duplicate timestamps.")
-            
+            # Use standardized Numba kernel for high-velocity aggregation
+            logger.info(f"[THALAMUS] Vectorized aggregation of {df.index.duplicated().sum()} duplicate timestamps.")
             unique_ts = df.index.unique()
             agg_rows = []
             

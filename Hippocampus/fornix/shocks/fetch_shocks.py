@@ -18,6 +18,7 @@ import os
 import sys
 import time
 import logging
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -262,21 +263,21 @@ def verify_raw() -> None:
     from shock_registry import get_all
 
     shocks = {s.id: s for s in get_all()}
-    print(f"\n{'ID':<20} {'Status':<8} {'Rows':>6}  {'Start':>12}  {'End':>12}  File")
-    print("-" * 85)
+    logger.info(f"\n{'ID':<20} {'Status':<8} {'Rows':>6}  {'Start':>12}  {'End':>12}  File")
+    logger.info("-" * 85)
     for sid, shock in shocks.items():
         path = RAW_DIR / f"{sid}.csv"
         if not path.exists():
-            print(f"{sid:<20} {'MISSING':<8} {'':>6}  {'':>12}  {'':>12}")
+            logger.info(f"{sid:<20} {'MISSING':<8} {'':>6}  {'':>12}  {'':>12}")
             continue
         try:
             df = pd.read_csv(path, index_col=0, parse_dates=True)
             start = df.index.min().strftime("%Y-%m-%d") if not df.empty else "?"
             end = df.index.max().strftime("%Y-%m-%d") if not df.empty else "?"
             status = "OK" if len(df) > 10 else "SPARSE"
-            print(f"{sid:<20} {status:<8} {len(df):>6}  {start:>12}  {end:>12}  {path.name}")
+            logger.info(f"{sid:<20} {status:<8} {len(df):>6}  {start:>12}  {end:>12}  {path.name}")
         except Exception as exc:
-            print(f"{sid:<20} {'ERROR':<8}  {exc}")
+            logger.info(f"{sid:<20} {'ERROR':<8}  {exc}")
     print()
 
 

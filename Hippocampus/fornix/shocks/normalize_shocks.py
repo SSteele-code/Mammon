@@ -13,6 +13,7 @@ Column schema (matches market_tape):
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import sys
 import warnings
 from pathlib import Path
@@ -373,21 +374,21 @@ def verify_normalized() -> None:
     from shock_registry import get_all
 
     shocks = {s.id: s for s in get_all()}
-    print(f"\n{'ID':<20} {'Status':<8} {'1-min bars':>10}  {'TS Start':>25}  {'TS End':>25}")
-    print("-" * 100)
+    logger.info(f"\n{'ID':<20} {'Status':<8} {'1-min bars':>10}  {'TS Start':>25}  {'TS End':>25}")
+    logger.info("-" * 100)
     for sid, shock in shocks.items():
         path = NORM_DIR / f"{sid}.csv"
         if not path.exists():
-            print(f"{sid:<20} {'MISSING':<8}")
+            logger.info(f"{sid:<20} {'MISSING':<8}")
             continue
         try:
             df = pd.read_csv(path)
             start = df["ts"].min() if "ts" in df.columns else "?"
             end = df["ts"].max() if "ts" in df.columns else "?"
             status = "OK" if len(df) > 100 else "SPARSE"
-            print(f"{sid:<20} {status:<8} {len(df):>10}  {str(start):>25}  {str(end):>25}")
+            logger.info(f"{sid:<20} {status:<8} {len(df):>10}  {str(start):>25}  {str(end):>25}")
         except Exception as exc:
-            print(f"{sid:<20} {'ERROR':<8}  {exc}")
+            logger.info(f"{sid:<20} {'ERROR':<8}  {exc}")
     print()
 
 

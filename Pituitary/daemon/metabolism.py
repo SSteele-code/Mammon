@@ -11,6 +11,8 @@ if str(project_root) not in sys.path:
 
 from Pituitary.search.diamond import DiamondGland
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 class PituitaryDaemon:
     """
@@ -24,15 +26,14 @@ class PituitaryDaemon:
         self.promotion_threshold = 0.05 # Silver must beat Gold by 5%
 
     def run_metabolism_cycle(self):
-        print("\n" + "="*60)
-        print(f"{'PITUITARY METABOLISM CYCLE STARTING':^60}")
-        print("="*60)
-        
+        logger.info("\n" + "="*60)
+        logger.info(f"{'PITUITARY METABOLISM CYCLE STARTING':^60}")
+        logger.info("="*60)
         # 1. Diamond Deep Search (Update Safety Rails)
         self.diamond.perform_deep_search()
         
         # 2. Evaluate Coronation
-        # Piece 115: Atomic Vault Read via Librarian (Redis/JSON)
+        # Atomic Vault Read via Librarian (Redis/JSON)
         vault = self.librarian.get_hormonal_vault()
             
         silver = vault.get("silver")
@@ -48,21 +49,18 @@ class PituitaryDaemon:
         elif isinstance(silver, dict):
             self._evaluate_coronation(vault, silver, gold)
         else:
-            print("[PITUITARY] No Silver challenger found. Coronation skipped.")
-            
-        print("="*60)
-        print(f"{'METABOLISM CYCLE COMPLETE':^60}")
-        print("="*60 + "\n")
-
+            logger.info("[PITUITARY] No Silver challenger found. Coronation skipped.")
+        logger.info("="*60)
+        logger.info(f"{'METABOLISM CYCLE COMPLETE':^60}")
+        logger.info("="*60 + "\n")
     def _evaluate_coronation(self, vault: Dict[str, Any], silver: Dict[str, Any], gold: Dict[str, Any]):
-        print(f"[PITUITARY] Evaluating Coronation: Challenger {silver.get('id', 'UNK')} vs Incumbent {gold.get('id', 'UNK')}")
-        
+        logger.info(f"[PITUITARY] Evaluating Coronation: Challenger {silver.get('id', 'UNK')} vs Incumbent {gold.get('id', 'UNK')}")
         # 1. The Clench (Audit against Rails)
-        # Piece 149: Standardized Hormonal Validation
+        # Standardized Hormonal Validation
         from Pituitary.gland.service import PituitaryGland
         pg = PituitaryGland()
         if not pg.validate_hormonal_integrity(silver["params"], repair=True):
-            print("[PITUITARY] Challenger REJECTED: Integrity Gate failure.")
+            logger.info("[PITUITARY] Challenger REJECTED: Integrity Gate failure.")
             self._discard_silver(silver["id"])
             return
 
@@ -72,12 +70,12 @@ class PituitaryDaemon:
             val = silver["params"].get(param)
             if val is not None and param in rails:
                 if val < bounds["min"] or val > bounds["max"]:
-                    print(f"   [AUDIT FAIL] {param}: {val:.4f} is outside rails [{bounds['min']:.4f}, {bounds['max']:.4f}]")
+                    logger.info(f"   [AUDIT FAIL] {param}: {val:.4f} is outside rails [{bounds['min']:.4f}, {bounds['max']:.4f}]")
                     is_safe = False
                     break
         
         if not is_safe:
-            print("[PITUITARY] Challenger REJECTED: Safety rail violation.")
+            logger.info("[PITUITARY] Challenger REJECTED: Safety rail violation.")
             self._discard_silver(silver["id"])
             return
 
@@ -85,19 +83,18 @@ class PituitaryDaemon:
         s_fitness = float(silver.get("fitness_estimate", silver.get("fitness", 0)))
         g_fitness = float(gold.get("fitness_snapshot", gold.get("fitness", 0.5)))
         
-        # Piece 238: Same delta logic as Crawler
+        # Same delta logic as Crawler
         delta = float(gold.get("params", {}).get("promotion_delta", 0.05))
         if s_fitness > (g_fitness + delta):
-            print(f"[PITUITARY] CHALLENGER WINS! {s_fitness:.4f} > {g_fitness:.4f}")
+            logger.info(f"[PITUITARY] CHALLENGER WINS! {s_fitness:.4f} > {g_fitness:.4f}")
             self._coronate(vault, silver, gold)
         else:
-            print(f"[PITUITARY] Incumbent Remains. Challenger fitness {s_fitness:.4f} too low to promote.")
+            logger.info(f"[PITUITARY] Incumbent Remains. Challenger fitness {s_fitness:.4f} too low to promote.")
             self._discard_silver(silver["id"])
 
     def _coronate(self, vault: Dict[str, Any], silver: Dict[str, Any], gold: Dict[str, Any]):
-        print(f"[PITUITARY] CORONATING NEW GOLD: {silver['id']}")
-        
-        # Piece 188: Standardized Coronation Authority
+        logger.info(f"[PITUITARY] CORONATING NEW GOLD: {silver['id']}")
+        # Standardized Coronation Authority
         self.librarian.install_gold_params(
             params=silver["params"],
             fitness=float(silver.get("fitness_estimate", silver.get("fitness", 0))),
@@ -105,8 +102,7 @@ class PituitaryDaemon:
             regime_id=silver.get("regime_id", "GLOBAL")
         )
         self._discard_silver(silver["id"])
-        print(f"[PITUITARY] Piece 188: Coronation Successful.")
-
+        logger.info(f"[PITUITARY] Piece 188: Coronation Successful.")
     def _discard_silver(self, silver_id: str):
         """Standardized silver cleanup."""
         vault = self.librarian.get_hormonal_vault()

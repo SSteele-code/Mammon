@@ -29,6 +29,8 @@ from alpaca.trading.requests import MarketOrderRequest
 
 from Cerebellum.Soul.brain_frame import BrainFrame
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Trigger:
@@ -53,7 +55,7 @@ class Trigger:
         self.api_secret = api_secret
         self.execution_mode = str(self.config.get("execution_mode", "DRY_RUN")).upper()
         
-        # Piece 119: Credential Guard & Lockdown
+        # Credential Guard & Lockdown
         self._verify_credentials()
         
         # Force paper=True unless explicitly LIVE
@@ -64,7 +66,7 @@ class Trigger:
         self.execution_adapter = "mock"
         self._adapter_lock = threading.Lock()
         if self.execution_mode not in ["DRY_RUN", "BACKTEST"]:
-            print(f"[BRAIN STEM] Initializing Alpaca Adapter (mode={self.execution_mode}, paper={self.paper})")
+            logger.info(f"[BRAIN STEM] Initializing Alpaca Adapter (mode={self.execution_mode}, paper={self.paper})")
             self.client = TradingClient(api_key, api_secret, paper=self.paper)
             self.execution_adapter = "alpaca"
         self.rng = np.random.default_rng()
@@ -74,7 +76,7 @@ class Trigger:
             self.treasury = TreasuryGland(mode=self.execution_mode)
         except Exception as e:
             # STEM-F-P60-603: Treasury setup exception
-            print(f"[STEM-F-P60-603] BRAIN STEM: Treasury unavailable: {e}")
+            logger.critical(f"[STEM-F-P60-603] BRAIN STEM: Treasury unavailable: {e}")
             self.treasury = None
 
         # Phase 6 Target: Purge Logic Decay (Attributes handled by last_execution_event)
@@ -105,12 +107,11 @@ class Trigger:
                     "symbol": "UNKNOWN", "qty": 0.0, "reconciled": False,
                 }
             else:
-                print("[BRAIN STEM] No open positions in Treasury. Starting clean.")
+                logger.info("[BRAIN STEM] No open positions in Treasury. Starting clean.")
         except Exception as e:
-            print(f"[STEM-W-P60-607] BRAIN STEM: Position reconciliation failed: {e}")
-
+            logger.warning(f"[STEM-W-P60-607] BRAIN STEM: Position reconciliation failed: {e}")
     def _verify_credentials(self):
-        """Piece 119: Fail-fast credential check."""
+        """Fail-fast credential check."""
         if not self.api_key or not self.api_secret:
             raise RuntimeError("CRITICAL: Alpaca API credentials missing from .env")
         if "your_random_" in str(self.api_key) or "your_random_" in str(self.api_secret):
@@ -118,7 +119,7 @@ class Trigger:
 
     def set_execution_mode(self, mode: str):
         mode_u = str(mode or "DRY_RUN").upper()
-        # Piece 119: Enforce lockdown on rebind
+        # Enforce lockdown on rebind
         is_live = mode_u == "LIVE"
         paper = True if not is_live else False
         
@@ -129,12 +130,12 @@ class Trigger:
             self.client = None
             if mode_u not in ["DRY_RUN", "BACKTEST"]:
                 try:
-                    print(f"[BRAIN STEM] Rebinding Alpaca Adapter (mode={mode_u}, paper={paper})")
+                    logger.info(f"[BRAIN STEM] Rebinding Alpaca Adapter (mode={mode_u}, paper={paper})")
                     self.client = TradingClient(self.api_key, self.api_secret, paper=paper)
                     self.execution_adapter = "alpaca"
                 except Exception as e:
                     # Phase 6 Target: Standardized MNER for adapter failure
-                    print(f"[STEM-E-P64-601] ADAPTER_REBIND_FAILED: {e}")
+                    logger.error(f"[STEM-E-P64-601] ADAPTER_REBIND_FAILED: {e}")
                     self.execution_adapter = "mock"
                     self.client = None
             try:
@@ -142,7 +143,7 @@ class Trigger:
                 self.treasury = TreasuryGland(mode=mode_u)
             except Exception as e:
                 # STEM-E-P64-604: Treasury rebind failure
-                print(f"[STEM-E-P64-604] BRAIN STEM: Treasury rebind failed for {mode_u}: {e}")
+                logger.error(f"[STEM-E-P64-604] BRAIN STEM: Treasury rebind failed for {mode_u}: {e}")
                 self.treasury = None
 
     def _get_prior(self, frame: BrainFrame) -> float:
@@ -172,7 +173,7 @@ class Trigger:
                 return bool(trade_gate())
             except Exception as e:
                 # STEM-W-P60-605: Trading enabled check failure
-                print(f"[STEM-W-P60-605] BRAIN STEM: Trading enabled provider failed: {e}")
+                logger.warning(f"[STEM-W-P60-605] BRAIN STEM: Trading enabled provider failed: {e}")
                 return False
         return True
 
@@ -181,7 +182,7 @@ class Trigger:
 
     def _valid_execution_payload(self, frame: BrainFrame) -> tuple[bool, str, float, float]:
         symbol = str(getattr(getattr(frame, "market", None), "symbol", "") or "").strip()
-        # Piece 130: Read qty from command slot
+        # Read qty from command slot
         cmd = getattr(frame, "command", None)
         qty = getattr(cmd, "qty", None)
         if qty in (None,):
@@ -192,11 +193,11 @@ class Trigger:
             price_f = float(price)
         except Exception as e:
             # Phase 6 Target: Standardized MNER for invalid payload
-            print(f"[STEM-E-P65-602] EXECUTION_PAYLOAD_INVALID: {e}")
+            logger.error(f"[STEM-E-P65-602] EXECUTION_PAYLOAD_INVALID: {e}")
             return False, symbol or "UNKNOWN", 0.0, 0.0
         
         notional = qty_f * price_f
-        # Piece 130: Validate qty > 0 and notional > 0
+        # Validate qty > 0 and notional > 0
         if (not symbol) or (qty_f <= 0.0) or (not math.isfinite(price_f)) or (price_f <= 0.0) or (notional <= 0.0):
             return False, symbol or "UNKNOWN", max(0.0, qty_f), max(0.0, price_f)
         
@@ -209,7 +210,7 @@ class Trigger:
             max_notional = float(self.config.get("max_notional", 1000.0))
             
         if (qty_f * price_f) > max_notional:
-            print(f"   [BRAIN STEM] REJECT: Notional {qty_f*price_f:.2f} > limit {max_notional}")
+            logger.info(f"   [BRAIN STEM] REJECT: Notional {qty_f*price_f:.2f} > limit {max_notional}")
             return False, symbol, qty_f, price_f
 
         return True, symbol, qty_f, price_f
@@ -285,7 +286,7 @@ class Trigger:
         mean_price = float(np.mean(final_prices))
         sigma_val = float(np.std(final_prices))
 
-        # Piece 89: Configurable N-Sigma bands
+        # Configurable N-Sigma bands
         n_sigma = float(self.config.get("brain_stem_val_n_sigma", 1.5))
         upper = mean_price + n_sigma * sigma_val
         lower = mean_price - n_sigma * sigma_val
@@ -302,7 +303,7 @@ class Trigger:
     # ------------------------------------------------------------------ #
     def load_and_hunt(self, pulse_type: str, frame: BrainFrame,
                       orchestrator=None, walk_engine=None, walk_seed=None, timeout_sec=None):
-        """Piece 14: Execution edge fires at ACTION (Arm) and MINT (Fire)."""
+        """Execution edge fires at ACTION (Arm) and MINT (Fire)."""
         if not enforce_pulse_gate(pulse_type, ["ACTION", "MINT"], "Brain_Stem"):
             self.prev_price = getattr(getattr(frame, "structure", None), "price", None)
             return True
@@ -342,7 +343,7 @@ class Trigger:
             if self.pending_entry is not None and self.position is None:
                 intent_id = self.pending_entry.get("intent_id")
                 symbol = self.pending_entry["symbol"]
-                # Piece 129: Read qty from command slot (hydrated by AllocationGland)
+                # Read qty from command slot (hydrated by AllocationGland)
                 qty = float(getattr(frame.command, "qty", 0.0))
                 price = frame.structure.price
                 if not self._trading_enabled(orchestrator):
@@ -490,7 +491,7 @@ class Trigger:
 
                 if exit_reason:
                     pnl = price - self.position["entry_price"]
-                    print(f"   [BRAIN STEM] SELL {symbol}: {exit_reason} PnL: {pnl:+.4f}")
+                    logger.info(f"   [BRAIN STEM] SELL {symbol}: {exit_reason} PnL: {pnl:+.4f}")
                     self.last_exit_reason = exit_reason
                     sell_qty = self.position.get("qty", float(frame.command.qty or 0.0))
                     fire_result = self._fire_physical(symbol, "SELL", sell_qty, price)
@@ -522,7 +523,7 @@ class Trigger:
                     self.position = None
                     self._emit_exec_event(pulse, "EXIT", exit_reason, symbol=symbol, price=price)
                 else:
-                    print(f"   [BRAIN STEM] HOLD {symbol} @ {price:.4f}")
+                    logger.info(f"   [BRAIN STEM] HOLD {symbol} @ {price:.4f}")
                     self._emit_exec_event(pulse, "HOLD", "HOLD", symbol=symbol, price=price)
 
             self.prev_price = frame.structure.price
@@ -551,7 +552,7 @@ class Trigger:
             self.last_exit_reason = "REJECT_INVALID_PAYLOAD"
             intent_id = f"{symbol}:{int(time.time() * 1000)}:{uuid.uuid4().hex[:8]}"
             if self.treasury is not None:
-                # Piece 13: Reconciled terminal state via TreasuryGland
+                # Reconciled terminal state via TreasuryGland
                 self.treasury.record_rejected_intent(
                     intent_id=intent_id,
                     symbol=symbol,
@@ -567,7 +568,7 @@ class Trigger:
         prior = self._get_prior(frame)
         if self.treasury is None:
             self.last_exit_reason = "REJECT_TREASURY_UNAVAILABLE"
-            print("   [BRAIN STEM] WAIT: Treasury unavailable -> NO_ACTION")
+            logger.info("   [BRAIN STEM] WAIT: Treasury unavailable -> NO_ACTION")
             self._emit_exec_event(pulse, "REJECT", self.last_exit_reason, symbol=symbol)
             self.prev_price = frame.structure.price
             return True
@@ -588,7 +589,7 @@ class Trigger:
         if getattr(frame, "valuation", None) is None:
             frame.valuation = SimpleNamespace()
 
-        # Piece 88: Write to frame.valuation
+        # Write to frame.valuation
         frame.valuation.mean = float(val_data["mean"])
         frame.valuation.std_dev = float(val_data["sigma"])
         frame.valuation.upper_band = float(val_data["upper"])
@@ -600,7 +601,7 @@ class Trigger:
         sigma = float(val_data["sigma"])
         mean = float(val_data["mean"])
         
-        # Piece 90: Zero guard
+        # Zero guard
         if sigma > 0 and mean > 0:
             frame.valuation.z_distance = (mean - price) / sigma
         else:
@@ -674,13 +675,13 @@ class Trigger:
                     "z_score": entry_z,
                     "risk_score": risk,
                     "confidence": prior,
-                    # Piece 134: Add Phase 1 context
+                    # Add Phase 1 context
                     "pre_trade_cost_bps": float(getattr(getattr(frame, "execution", None), "total_cost_bps", 0.0) or 0.0),
                     "spread_regime": str(getattr(getattr(frame, "environment", None), "spread_regime", "UNKNOWN")),
                     "z_distance": float(getattr(getattr(frame, "valuation", None), "z_distance", 0.0) or 0.0)
                 })
                 self.mean_dev_monitor_active = True
-                print("   [BRAIN STEM] ACTION armed -> awaiting MINT execution (meanDev monitor ON)")
+                logger.info("   [BRAIN STEM] ACTION armed -> awaiting MINT execution (meanDev monitor ON)")
                 self._emit_exec_event(
                     pulse,
                     "ARM",
@@ -703,8 +704,7 @@ class Trigger:
                 if cap_reason:
                     self.last_exit_reason = cap_reason
                     self._emit_exec_event(pulse, "CANCEL", cap_reason, symbol=symbol)
-                print(f"   [BRAIN STEM] WAIT: {', '.join(reasons)}")
-
+                logger.info(f"   [BRAIN STEM] WAIT: {', '.join(reasons)}")
         else:
             # EXIT LOGIC - Recalculate bands every pulse
             mean = val_data["mean"]
@@ -730,7 +730,7 @@ class Trigger:
             
             if exit_reason:
                 pnl = price - self.position["entry_price"]
-                print(f"   [BRAIN STEM] SELL {symbol}: {exit_reason} PnL: {pnl:+.4f}")
+                logger.info(f"   [BRAIN STEM] SELL {symbol}: {exit_reason} PnL: {pnl:+.4f}")
                 self.last_exit_reason = exit_reason
                 # Use original position quantity for exit, not current sizing mult
                 sell_qty = self.position.get("qty", float(frame.command.qty or 0.0))  # M1 fix
@@ -768,7 +768,7 @@ class Trigger:
                 self.position = None
                 self._emit_exec_event(pulse, "EXIT", exit_reason, symbol=symbol, price=price)
             else:
-                print(f"   [BRAIN STEM] HOLD {symbol} @ {price:.4f}")
+                logger.info(f"   [BRAIN STEM] HOLD {symbol} @ {price:.4f}")
                 self._emit_exec_event(pulse, "HOLD", "HOLD", symbol=symbol, price=price)
 
         self.prev_price = price
@@ -785,14 +785,14 @@ class Trigger:
                     order = sell(self.client, symbol, qty)
                 
                 if order:
-                    print(f"   [EXECUTION] {side} {symbol} (ALPACA: {order.id})")
+                    logger.info(f"   [EXECUTION] {side} {symbol} (ALPACA: {order.id})")
                     return {"status": "fired", "order_id": order.id, "source": "alpaca"}
             except Exception as e:
                 # STEM-F-P60-606: Broker submission failure
-                print(f"[STEM-F-P60-606] BRAIN STEM: Alpaca {side} failed: {e}")
+                logger.critical(f"[STEM-F-P60-606] BRAIN STEM: Alpaca {side} failed: {e}")
                 return {"status": "error", "msg": str(e)}
 
-        print(f"   [EXECUTION] {side} {symbol} (MOCK)")
+        logger.info(f"   [EXECUTION] {side} {symbol} (MOCK)")
         return {"status": "fired", "source": "mock"}
 
     def get_state(self):

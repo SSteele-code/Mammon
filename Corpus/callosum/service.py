@@ -38,7 +38,7 @@ class Callosum:
         if pulse_type is None:
             raise TypeError("score_tier requires pulse_type")
 
-        # Piece 14: Corpus authority only fires at ACTION
+        # Corpus authority only fires at ACTION
         if not enforce_pulse_gate(pulse_type, ["ACTION"], "Corpus"):
             return None
 

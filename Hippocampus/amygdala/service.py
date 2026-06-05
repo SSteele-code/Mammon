@@ -7,6 +7,8 @@ import pandas as pd
 from Cerebellum.Soul.brain_frame import BrainFrame
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Amygdala:
@@ -82,7 +84,7 @@ class Amygdala:
         Mints the unified ticket by flattening the BrainFrame into the isolated silo.
         V3.2 ANALYTICAL: Only MINT pulses are persisted to DuckDB.
         """
-        # Piece 14: Scribing only happens at MINT
+        # Scribing only happens at MINT
         if not enforce_pulse_gate(pulse_type, ["MINT"], "Amygdala"):
             return
 
@@ -116,7 +118,7 @@ class Amygdala:
             elif primary_db:
                 target_db = str(primary_db)
 
-            # Piece 16: Atomic Analytical Write to DuckDB
+            # Atomic Analytical Write to DuckDB
             try:
                 self.scribe.mint(ticket, target_db=target_db)
             except TypeError:
@@ -130,14 +132,13 @@ class Amygdala:
             self.last_write_status = "SUCCESS"
             self.last_error_code = None
             self.last_error_message = None
-            print(f"[AMYGDALA] MINT Synapse Analytical (DuckDB): {self.last_mint_ts}")
+            logger.info(f"[AMYGDALA] MINT Synapse Analytical (DuckDB): {self.last_mint_ts}")
         except Exception as e:
             # HIPP-E-P70-714: Synapse ticket write failure
             self.last_write_status = "ERROR"
             self.last_error_code = "WRITE_FAILURE"
             self.last_error_message = str(e)
-            print(f"[HIPP-E-P70-714] AMYGDALA: mint_synapse_ticket failed: {e}")
-
+            logger.info(f"[HIPP-E-P70-714] AMYGDALA: mint_synapse_ticket failed: {e}")
     def get_state(self):
         return {
             "mint_count": self.mint_count,
@@ -152,14 +153,14 @@ class Amygdala:
     # --- Optimizer Audit Scribing (Relocated from Hospital) ---
     
     def log_stage_run(self, run_id: str, stage_name: str, status: str, regime_id: str = "", metrics: Dict = None, reason_code: str = ""):
-        """Piece 162: Centralized Optimizer Stage Logging."""
+        """Centralized Optimizer Stage Logging."""
         metrics_json = json.dumps(metrics or {}, sort_keys=True)
         self.librarian.log_stage_run(run_id, stage_name, status, regime_id, metrics_json, reason_code)
 
     def register_candidate(self, run_id: str, candidate_id: str, source_stage: str, params: Dict, 
                            regime_id: str = "", diversity_dist: float = 0.0, support_count: int = 0, 
                            kept: bool = True, reason_code: str = ""):
-        """Piece 162: Centralized Candidate Library Persistence."""
+        """Centralized Candidate Library Persistence."""
         param_json = json.dumps(params, sort_keys=True)
         self.librarian.upsert_candidate_library(
             candidate_id=candidate_id,

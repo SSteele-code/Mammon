@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 
 class TreasuryGland:
@@ -26,7 +28,7 @@ class TreasuryGland:
         self._init_schema()
 
     def _init_schema(self):
-        # Piece 116: Schema initialization on TimescaleDB
+        # Schema initialization on TimescaleDB
         writer = getattr(self.librarian, "write_direct", self.librarian.write)
         writer(
             """
@@ -134,17 +136,17 @@ class TreasuryGland:
 
     def record_intent(self, intent: Dict[str, Any]):
         """Target #56: authoritative intent persistence."""
-        # Piece 11: Validation at boundary
+        # Validation at boundary
         symbol = str(intent.get("symbol", "")).strip()
         qty = float(intent.get("qty", 0.0))
         price = float(intent.get("price_ref", 0.0))
         
         if not symbol or qty <= 0 or price <= 0:
-            print(f"[TREASURY_WARN] Invalid intent payload rejected: {symbol} qty={qty} price={price}")
+            logger.warning(f"[TREASURY_WARN] Invalid intent payload rejected: {symbol} qty={qty} price={price}")
             return
 
         ts = float(intent.get("ts") or time.time())
-        # Piece 56: Standardized multi-transport write
+        # Standardized multi-transport write
         self.librarian.write(
             """
             INSERT INTO money_orders(
@@ -173,7 +175,6 @@ class TreasuryGland:
                 float(intent.get("z_score", 0.0)),
                 float(intent.get("risk_score", 0.0)),
                 float(intent.get("confidence", 0.0)),
-                # Piece 134
                 float(intent.get("pre_trade_cost_bps", 0.0)),
                 str(intent.get("spread_regime", "UNKNOWN")),
                 float(intent.get("z_distance", 0.0)),
@@ -184,7 +185,7 @@ class TreasuryGland:
         self._audit("ACTION_ARMED", intent.get("intent_id"), symbol, intent)
 
     def record_rejected_intent(self, intent_id: str, symbol: str, qty: float, price: float, reason: str):
-        """Piece 13: Centralized terminal state for invalid payloads."""
+        """Centralized terminal state for invalid payloads."""
         ts_now = time.time()
         self.librarian.write(
             """
@@ -216,7 +217,7 @@ class TreasuryGland:
 
     def _transition_intent(self, intent_id: str, symbol: str, status: str, event_type: str, reason: str):
         ts = time.time()
-        # Piece 11: Idempotent state update
+        # Idempotent state update
         self.librarian.write(
             """
             UPDATE money_orders
@@ -244,7 +245,7 @@ class TreasuryGland:
         price_ref: float = 0.0,
         pulse_type: str = "MINT",
     ):
-        # Piece 11: Validation
+        # Validation
         qty_f = float(qty)
         raw_price = float(fill_price)
         if qty_f <= 0 or raw_price <= 0:
@@ -426,7 +427,7 @@ class TreasuryGland:
         )
 
     def _snapshot_pnl(self, symbol: str, pulse_type: str = "MINT"):
-        """Piece 58: Timing Gated Snapshotting."""
+        """Timing Gated Snapshotting."""
         if str(pulse_type).upper() != "MINT":
             return
 
@@ -470,7 +471,7 @@ class TreasuryGland:
         )
 
     def get_status(self) -> Dict[str, Any]:
-        # Piece 11: Explicit mode isolation
+        # Explicit mode isolation
         open_pos_rows = self.librarian.read(
             """
             SELECT COUNT(*) AS c
@@ -594,7 +595,7 @@ class TreasuryGland:
         if not day_utc:
             day_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
-        # Piece 11: Explicit UTC day boundaries
+        # Explicit UTC day boundaries
         day_start = datetime.strptime(day_utc, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp()
         day_end = day_start + 86400.0
         

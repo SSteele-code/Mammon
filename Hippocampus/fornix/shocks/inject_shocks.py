@@ -14,6 +14,7 @@ Usage:
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import sys
 from pathlib import Path
 
@@ -187,17 +188,17 @@ def verify_injection() -> None:
     shocks = {s.id: s for s in get_all()}
     conn = _get_conn()
     try:
-        print(f"\n{'ID':<20} {'Symbol':<30} {'Rows in market_tape':>20}  Status")
-        print("-" * 90)
+        logger.info(f"\n{'ID':<20} {'Symbol':<30} {'Rows in market_tape':>20}  Status")
+        logger.info("-" * 90)
         total = 0
         for sid, shock in shocks.items():
             count = conn.execute(
                 "SELECT COUNT(*) FROM market_tape WHERE symbol = ?", [shock.symbol]
             ).fetchone()[0]
             status = "OK" if count > 1000 else ("SPARSE" if count > 0 else "MISSING")
-            print(f"{sid:<20} {shock.symbol:<30} {count:>20}  {status}")
+            logger.info(f"{sid:<20} {shock.symbol:<30} {count:>20}  {status}")
             total += count
-        print(f"\nTotal shock bars in market_tape: {total:,}")
+        logger.info(f"\nTotal shock bars in market_tape: {total:,}")
         print()
     finally:
         conn.close()
@@ -243,7 +244,7 @@ if __name__ == "__main__":
         if confirm == "yes":
             wipe_all_shocks()
         else:
-            print("Aborted.")
+            logger.info("Aborted.")
     elif args.id:
         from shock_registry import get_by_id
         inject_one(get_by_id(args.id), force=args.force)

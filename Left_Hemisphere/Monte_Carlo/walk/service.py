@@ -5,6 +5,8 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 from Hippocampus.Archivist.librarian import librarian
 from Cerebellum.Soul.brain_frame import BrainFrame
+import logging
+logger = logging.getLogger(__name__)
 
 @dataclass
 class WalkSeed:
@@ -173,7 +175,7 @@ class QuantizedGeometricWalk:
         return seed
 
     def _mint_seed(self, seed: WalkSeed, pulse_type: str):
-        """Piece 101: Analytical consolidation into DuckDB."""
+        """Analytical consolidation into DuckDB."""
         try:
             from datetime import datetime
             self.librarian.mint_walk({
@@ -190,7 +192,7 @@ class QuantizedGeometricWalk:
         except Exception as e:
             # LHMI-W-P41-356: persistence silent catch
             # Walk persistence is audit-only and must never block risk painting.
-            print(f"[LHMI-W-P41-356] WALK: Seed mint failed: {e}")
+            logger.info(f"[LHMI-W-P41-356] WALK: Seed mint failed: {e}")
             pass
 
     def bin_dist_avwap(self, val: float) -> int:

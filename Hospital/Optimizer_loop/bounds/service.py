@@ -57,7 +57,7 @@ MAXS = np.array([
 
 def normalize_weights(raw_row):
     """
-    Piece 204: Robustly normalizes weight groups in a 46-D row.
+    Robustly normalizes weight groups in a 46-D row.
     Enforces strict sum == 1.0 for each group.
     """
     s = raw_row.copy().astype(np.float64)
@@ -102,7 +102,7 @@ def normalize_weights(raw_row):
             
     return s
 
-# Piece 205: Domain Slices for Split Optimization
+# Domain Slices for Split Optimization
 DOMAIN_SLICES = {
     "RISK": {
         "indices": [1, 2, 3, 4, 18, 19, 20, 21], # monte_noise, monte_weights, BS survival/noise/sigma/bias

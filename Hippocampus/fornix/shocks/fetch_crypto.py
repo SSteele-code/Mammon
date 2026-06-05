@@ -20,6 +20,7 @@ Target: ~2.5M bars total (16 symbols × ~5yr × ~31k bars/yr ≈ 2.5M)
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import os
 import sys
 import time
@@ -432,8 +433,8 @@ def verify_crypto() -> None:
     """Print row counts per crypto symbol in market_tape."""
     conn = _get_duck_conn()
     try:
-        print(f"\n{'Symbol':<15} {'Rows in market_tape':>20}  {'First bar':>22}  {'Last bar':>22}  Status")
-        print("-" * 95)
+        logger.info(f"\n{'Symbol':<15} {'Rows in market_tape':>20}  {'First bar':>22}  {'Last bar':>22}  Status")
+        logger.info("-" * 95)
         total = 0
         for sym in CRYPTO_SYMBOLS:
             row = conn.execute(
@@ -441,9 +442,9 @@ def verify_crypto() -> None:
             ).fetchone()
             count, first, last = row
             status = "OK" if count > 100_000 else ("PARTIAL" if count > 0 else "MISSING")
-            print(f"{sym:<15} {count:>20}  {str(first or ''):>22}  {str(last or ''):>22}  {status}")
+            logger.info(f"{sym:<15} {count:>20}  {str(first or ''):>22}  {str(last or ''):>22}  {status}")
             total += count
-        print(f"\nTotal real crypto bars in market_tape: {total:,}")
+        logger.info(f"\nTotal real crypto bars in market_tape: {total:,}")
         print()
     finally:
         conn.close()

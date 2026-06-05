@@ -6,6 +6,8 @@ Every downstream script pulls from here. Nothing is hardcoded elsewhere.
 
 from dataclasses import dataclass, field
 from typing import List
+import logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -381,8 +383,8 @@ def all_symbols() -> List[str]:
 
 
 if __name__ == "__main__":
-    print(f"Shock Registry — {len(SHOCK_REGISTRY)} events\n")
+    logger.info(f"Shock Registry — {len(SHOCK_REGISTRY)} events\n")
     for s in SHOCK_REGISTRY:
-        print(f"  [{s.category:5}] {s.symbol:<30} {s.start} → {s.end}")
-        print(f"           {s.name}")
+        logger.info(f"  [{s.category:5}] {s.symbol:<30} {s.start} → {s.end}")
+        logger.info(f"           {s.name}")
         print()

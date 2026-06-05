@@ -4,7 +4,7 @@ from numba import njit
 @njit(cache=True)
 def calculate_atr_njit(high_arr, low_arr, close_arr, window):
     """
-    Piece 10: Standardized Vectorized ATR (Council Authority).
+    Standardized Vectorized ATR (Council Authority).
     Uses Numba for C-level speed.
     """
     n = len(high_arr)
@@ -34,7 +34,7 @@ def calculate_atr_njit(high_arr, low_arr, close_arr, window):
 @njit(cache=True)
 def calculate_adx_njit(high_arr, low_arr, close_arr, window):
     """
-    Piece 10: Standardized Vectorized ADX (Council Authority).
+    Standardized Vectorized ADX (Council Authority).
     Ultra-fast directional movement index logic.
     """
     n = len(high_arr)
@@ -88,13 +88,13 @@ def calculate_adx_njit(high_arr, low_arr, close_arr, window):
 
 @njit(cache=True)
 def calculate_vwap_njit(close_arr, vol_arr):
-    """Piece 10: Standardized VWAP Kernel (Council Authority)."""
+    """Standardized VWAP Kernel (Council Authority)."""
     return np.cumsum(close_arr * vol_arr) / (np.cumsum(vol_arr) + 1e-9)
 
 @njit(cache=True)
 def calculate_approx_fitness_njit(risk_tilt, council_balance, stop_distance_atr):
     """
-    Piece 12: Centralized Approx Fitness Kernel.
+    Centralized Approx Fitness Kernel.
     Consolidated from OptimizerV2 to Council authority.
     """
     penalty = min(stop_distance_atr * 0.03, 0.30)

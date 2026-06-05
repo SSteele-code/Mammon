@@ -7,8 +7,10 @@ from dataclasses import dataclass
 
 from Hippocampus.Archivist.librarian import librarian
 from Hospital.Optimizer_loop.bounds import MINS, MAXS, normalize_weights, PARAM_KEYS
+import logging
+logger = logging.getLogger(__name__)
 
-# Piece 149: Phase 1 execution/sizing parameter bounds
+# Phase 1 execution/sizing parameter bounds
 PHASE1_PARAM_BOUNDS = {
     "spread_tight_threshold_bps": (0.1, 50.0),
     "spread_normal_threshold_bps": (1.0, 100.0),
@@ -62,16 +64,16 @@ class PituitaryGland:
         self.gold_path = self.params_root / "gold_params.json"
         self.bronze_path = self.params_root / "bronze_list.json"
         
-        # Piece 115: Librarian handles Redis-based vault storage
+        # Librarian handles Redis-based vault storage
         self.librarian = librarian
 
     def secrete_growth_hormone(self, pulse_type: str):
-        """Piece 183: Stubbed. GP Mutation is archived in favor of Interleaved Furnace."""
+        """Stubbed. GP Mutation is archived in favor of Interleaved Furnace."""
         pass
 
     def validate_hormonal_integrity(self, params: Dict[str, Any], repair: bool = False) -> bool:
         """
-        Piece 14 Safety Gate (Piece 15):
+        Safety Gate (Piece 15):
         Ensures all 23-D keys are present and values are within absolute MIN/MAX bounds.
         Also validates 24 Phase 1 execution/sizing parameters.
         V5: Standardized MNER [PITU-E-...] reporting.
@@ -82,7 +84,7 @@ class PituitaryGland:
         for i, key in enumerate(PARAM_KEYS):
             if key not in params:
                 # [PITU-E-P14-901] Missing Key
-                print(f"   [PITU-E-P14-901] INTEGRITY_GATE_FAIL: Missing optimizer key '{key}'")
+                logger.info(f"   [PITU-E-P14-901] INTEGRITY_GATE_FAIL: Missing optimizer key '{key}'")
                 return False
             
             val = float(params[key])
@@ -92,12 +94,11 @@ class PituitaryGland:
                 is_valid = False
                 if repair:
                     clamped = np.clip(val, low, high)
-                    print(f"   [PITU-W-P14-902] INTEGRITY_REPAIR: {key} ({val:.4f}) clamped to [{low}, {high}]")
+                    logger.info(f"   [PITU-W-P14-902] INTEGRITY_REPAIR: {key} ({val:.4f}) clamped to [{low}, {high}]")
                     params[key] = clamped
                 else:
                     # [PITU-E-P14-903] Bound Violation
-                    print(f"   [PITU-E-P14-903] INTEGRITY_GATE_FAIL: {key} ({val:.4f}) outside [{low}, {high}]")
-
+                    logger.info(f"   [PITU-E-P14-903] INTEGRITY_GATE_FAIL: {key} ({val:.4f}) outside [{low}, {high}]")
         # 2. Validate Phase 1 Execution/Sizing Params (Piece 149)
         for key, (low, high) in PHASE1_PARAM_BOUNDS.items():
             if key in params:
@@ -106,12 +107,11 @@ class PituitaryGland:
                     is_valid = False
                     if repair:
                         clamped = np.clip(val, low, high)
-                        print(f"   [PITU-W-P149-904] INTEGRITY_REPAIR: {key} ({val:.4f}) clamped to [{low}, {high}]")
+                        logger.info(f"   [PITU-W-P149-904] INTEGRITY_REPAIR: {key} ({val:.4f}) clamped to [{low}, {high}]")
                         params[key] = clamped
                     else:
                         # [PITU-E-P149-905] Bound Violation (Phase 1)
-                        print(f"   [PITU-E-P149-905] INTEGRITY_GATE_FAIL: {key} ({val:.4f}) outside [{low}, {high}]")
-        
+                        logger.info(f"   [PITU-E-P149-905] INTEGRITY_GATE_FAIL: {key} ({val:.4f}) outside [{low}, {high}]")
         return is_valid or repair
 
     def secrete_platinum(self, regime_id: str, new_params: Dict[str, Any], fitness: float) -> bool:
@@ -119,10 +119,10 @@ class PituitaryGland:
         Attempts to update the Platinum standard. 
         If successful, the old Platinum is retired to Bronze.
         """
-        # Piece 14 Safety Gate: Platinum must also pass the gate
+        # Safety Gate: Platinum must also pass the gate
         if not self.validate_hormonal_integrity(new_params, repair=True):
             # [PITU-E-P189-906] Platinum Gate Failure
-            print(f"[PITU-E-P189-906] PLATINUM_ABORTED: New params for {regime_id} failed integrity gate.")
+            logger.info(f"[PITU-E-P189-906] PLATINUM_ABORTED: New params for {regime_id} failed integrity gate.")
             return False
 
         vault = self.librarian.get_hormonal_vault()
@@ -130,8 +130,7 @@ class PituitaryGland:
         current_fitness = current_plat.get("fitness_estimate", 0.0)
         
         if fitness > current_fitness:
-            print(f"[PITUITARY] New Platinum Standard! ({fitness:.4f} > {current_fitness:.4f})")
-            
+            logger.info(f"[PITUITARY] New Platinum Standard! ({fitness:.4f} > {current_fitness:.4f})")
             # Retire old Platinum to Bronze if it existed
             if current_plat:
                 self._retire_to_bronze(current_plat, reason="dethroned_by_platinum")
@@ -148,7 +147,7 @@ class PituitaryGland:
             vault["platinum"] = new_entry
             self.librarian.set_hormonal_vault(vault)
             
-            # Piece 189: Record in Param DB
+            # Record in Param DB
             self.librarian.record_param_set(param_id, "PLATINUM", new_params, regime_id, fitness, "VolumeFurnace")
             
             return True
@@ -172,16 +171,16 @@ class PituitaryGland:
         self.librarian.set_hormonal_vault(vault)
 
     def _params_to_vector(self, params: Dict[str, Any]) -> Optional[np.ndarray]:
-        """Piece 208: Converts a flat param dict to a 46-D numpy vector."""
+        """Converts a flat param dict to a 46-D numpy vector."""
         try:
             vec = np.array([float(params[k]) for k in PARAM_KEYS])
             return vec
         except (KeyError, TypeError, ValueError) as e:
-            print(f"[PITU-E-P208] PARAMS_TO_VECTOR_FAILED: {e}")
+            logger.info(f"[PITU-E-P208] PARAMS_TO_VECTOR_FAILED: {e}")
             return None
 
     def _vector_to_params(self, vec: np.ndarray) -> Dict[str, Any]:
-        """Piece 208: Converts a 46-D numpy vector to a flat param dict."""
+        """Converts a 46-D numpy vector to a flat param dict."""
         params = {}
         for i, key in enumerate(PARAM_KEYS):
             val = float(vec[i])

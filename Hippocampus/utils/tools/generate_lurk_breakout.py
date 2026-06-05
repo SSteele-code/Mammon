@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import os
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 def generate_lurk_snap_data(filename=None):
     if filename is None:
@@ -38,7 +40,6 @@ def generate_lurk_snap_data(filename=None):
     }, index=dates)
     
     df.to_csv(filename, index=False)
-    print(f"Synthetic 'Lurk & Snap' data saved to {filename}")
-
+    logger.info(f"Synthetic 'Lurk & Snap' data saved to {filename}")
 if __name__ == "__main__":
     generate_lurk_snap_data()

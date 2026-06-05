@@ -45,7 +45,7 @@ class GuardrailedOptimizer:
         self.run_id = run_id
         self.lib = librarian
         
-        # Piece 162: Initialize the State-Scribe authority
+        # Initialize the State-Scribe authority
         from Hippocampus.amygdala.service import Amygdala
         self.amygdala = Amygdala(librarian_instance=self.lib)
 

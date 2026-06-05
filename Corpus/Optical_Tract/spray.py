@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 class OpticalTract:
     """
@@ -31,8 +33,7 @@ class OpticalTract:
             idx = len(self.subscribers) - 1
             if idx < self.MAX_SUBSCRIBERS:
                 self.subscriber_names[idx] = name or type(lobe_instance).__name__
-            print(f"[OPTICAL_TRACT] Subscribed: {self.subscriber_names[idx]}")
-
+            logger.info(f"[OPTICAL_TRACT] Subscribed: {self.subscriber_names[idx]}")
     def unsubscribe(self, lobe_instance: Any):
         if lobe_instance in self.subscribers:
             idx = self.subscribers.index(lobe_instance)
@@ -42,7 +43,7 @@ class OpticalTract:
 
     def spray(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
-        Piece 50: Standardized high-velocity broadcast.
+        Standardized high-velocity broadcast.
         Fires exactly when Thalamus materializes a pulse.
         """
         if df is None or df.empty:
@@ -75,7 +76,7 @@ class OpticalTract:
                     "error": err_msg,
                 })
                 
-                # Piece 50: Persistent Audit for delivery failure
+                # Persistent Audit for delivery failure
                 try:
                     self.librarian.write(
                         """

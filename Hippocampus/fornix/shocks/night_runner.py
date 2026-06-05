@@ -17,6 +17,7 @@ SSE:       Posts fornix_start / fornix_complete events to /api/event so the
 
 import json
 import logging
+logger = logging.getLogger(__name__)
 import os
 import sys
 import time
@@ -259,8 +260,8 @@ def print_status() -> None:
     completed = set(state.get("completed_nights", []))
     next_n = _next_night(state)
 
-    print(f"\n{'#':<5} {'Crypto':<12} {'Shock':<35} Status")
-    print("-" * 70)
+    logger.info(f"\n{'#':<5} {'Crypto':<12} {'Shock':<35} Status")
+    logger.info("-" * 70)
     for i, (crypto, shock) in enumerate(NIGHT_SCHEDULE, 1):
         if i in completed:
             status = "DONE"
@@ -269,12 +270,9 @@ def print_status() -> None:
         else:
             status = "pending"
         c = crypto or "(shock only)"
-        print(f"  {i:<3} {c:<12} {shock:<35} {status}")
-
+        logger.info(f"  {i:<3} {c:<12} {shock:<35} {status}")
     done = len(completed)
-    print(f"\n{done}/{len(NIGHT_SCHEDULE)} nights complete. Last run: {state.get('last_run', 'never')}\n")
-
-
+    logger.info(f"\n{done}/{len(NIGHT_SCHEDULE)} nights complete. Last run: {state.get('last_run', 'never')}\n")
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------

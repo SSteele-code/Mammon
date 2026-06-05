@@ -3,6 +3,8 @@ import time
 import json
 from pathlib import Path
 from typing import Optional
+import logging
+logger = logging.getLogger(__name__)
 
 _DB_PATH = Path(__file__).resolve().parent / "control_logs.db"
 
@@ -65,4 +67,4 @@ class ControlLogScribe:
                     ),
                 )
         except Exception as exc:
-            print(f"[CONTROL_LOG_SCRIBE] write failed: {exc}")
+            logger.info(f"[CONTROL_LOG_SCRIBE] write failed: {exc}")

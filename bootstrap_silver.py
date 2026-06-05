@@ -8,6 +8,8 @@ import json
 import os
 import time
 import redis
+import logging
+logger = logging.getLogger(__name__)
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
@@ -26,11 +28,10 @@ gold_params = gold.get("params", {})
 BASELINE_FITNESS = 0.50
 
 if not gold_params:
-    print("[BOOTSTRAP] No Gold params found — aborting.")
+    logger.info("[BOOTSTRAP] No Gold params found — aborting.")
     exit(1)
 
-print(f"[BOOTSTRAP] Gold ID: {gold.get('id')} (using baseline fitness={BASELINE_FITNESS})")
-
+logger.info(f"[BOOTSTRAP] Gold ID: {gold.get('id')} (using baseline fitness={BASELINE_FITNESS})")
 silver_raw = vault.get("silver", [])
 if isinstance(silver_raw, str):
     silver_raw = json.loads(silver_raw)
@@ -38,7 +39,7 @@ if not isinstance(silver_raw, list):
     silver_raw = []
 
 existing = len(silver_raw)
-print(f"[BOOTSTRAP] Clearing {existing} existing Silver entries and seeding fresh.")
+logger.info(f"[BOOTSTRAP] Clearing {existing} existing Silver entries and seeding fresh.")
 silver_raw = []  # Always start clean so stale 0.0-fitness entries don't poison GP.
 
 now = time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -77,7 +78,7 @@ with r.pipeline() as pipe:
     pipe.hset(KEY, mapping=payload)
     pipe.execute()
 
-print(f"[BOOTSTRAP] Silver seeded: {len(silver_raw)} entries total.")
-print(f"  {entry1['id']} (fitness={entry1['fitness']:.4f})")
-print(f"  {entry2['id']} (fitness={entry2['fitness']:.4f})")
-print("[BOOTSTRAP] GP will fire on the next 4th-MINT cycle.")
+logger.info(f"[BOOTSTRAP] Silver seeded: {len(silver_raw)} entries total.")
+logger.info(f"  {entry1['id']} (fitness={entry1['fitness']:.4f})")
+logger.info(f"  {entry2['id']} (fitness={entry2['fitness']:.4f})")
+logger.info("[BOOTSTRAP] GP will fire on the next 4th-MINT cycle.")

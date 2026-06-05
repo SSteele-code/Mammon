@@ -12,12 +12,14 @@ from Cerebellum.Soul.brain_frame import BrainFrame
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
 from Cerebellum.council.spread_engine import SpreadEngine
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Council:
     """
     Cerebellum: The Council.
-    Piece 12: Environment Intelligence Authority.
+    Environment Intelligence Authority.
     - Deterministic indicator synthesis.
     - Restricted writes to frame.environment.
     """
@@ -27,7 +29,7 @@ class Council:
         self.librarian = librarian
         self._last_results = {}
         self._last_confidence = 0.5
-        self.spread_engine = SpreadEngine() # Piece 55
+        self.spread_engine = SpreadEngine()
         
         # Telemetry (Piece 12)
         self.telemetry = {
@@ -45,7 +47,7 @@ class Council:
         if frame is None:
             raise TypeError("consult requires frame for runtime path")
 
-        # Piece 14: Council processes all pulses for continuous situational awareness
+        # Council processes all pulses for continuous situational awareness
         if not enforce_pulse_gate(pulse_type, ["SEED", "ACTION", "MINT"], "Council"):
             return 0.5
 
@@ -61,7 +63,7 @@ class Council:
         # 1. SEQUENTIAL DISPATCH (V3 OPTIMIZATION)
         results = {}
         try:
-            # Piece 55: Spread Engine must run first to populate frame.environment.spread_score
+            # Spread Engine must run first to populate frame.environment.spread_score
             results["spread"] = self.spread_engine.evaluate(pulse_type, frame)
             
             results["atr"] = self._calculate_atr_score(df)
@@ -71,7 +73,7 @@ class Council:
             self.telemetry["status"] = "SUCCESS"
         except Exception as e:
             # SOUL-E-P30-213: Main calculation failure
-            print(f"[SOUL-E-P30-213] COUNCIL: Sequential calc failed: {e}")
+            logger.error(f"[SOUL-E-P30-213] COUNCIL: Sequential calc failed: {e}")
             self.telemetry["status"] = f"ERROR:{type(e).__name__}"
             # Fallback for safety
             results = {
@@ -100,17 +102,17 @@ class Council:
             w_adx = float(override.get("w_adx", self.config.get("council_w_adx", 0.60)))
             w_vol = float(override.get("w_vol", self.config.get("council_w_vol", 0.30)))
             w_vwap = float(override.get("w_vwap", self.config.get("council_w_vwap", 0.04)))
-            w_spread = float(override.get("w_spread", self.config.get("council_w_spread", 0.15))) # Piece 54
+            w_spread = float(override.get("w_spread", self.config.get("council_w_spread", 0.15)))
             if override.get("trace"):
-                print(f"   [COUNCIL] Applied regime override: {regime_id} -> {override['trace']}")
+                logger.info(f"   [COUNCIL] Applied regime override: {regime_id} -> {override['trace']}")
         else:
             w_atr = float(self.config.get("council_w_atr", 0.06))
             w_adx = float(self.config.get("council_w_adx", 0.60))
             w_vol = float(self.config.get("council_w_vol", 0.30))
             w_vwap = float(self.config.get("council_w_vwap", 0.04))
-            w_spread = float(self.config.get("council_w_spread", 0.15)) # Piece 54
+            w_spread = float(self.config.get("council_w_spread", 0.15))
 
-        # Piece 54: Blend spread_score into confidence
+        # Blend spread_score into confidence
         spread_score = frame.environment.spread_score
         
         confidence_score = (
@@ -118,7 +120,7 @@ class Council:
             (results["adx"]["score"] * w_adx) + 
             (results["vol"]["score"] * w_vol) + 
             (results["vwap"]["score"] * w_vwap) +
-            (spread_score * w_spread) # Piece 54
+            (spread_score * w_spread)
         )
         
         # Normalize sum
@@ -136,7 +138,7 @@ class Council:
         frame.environment.adx = float(results["adx"]["val"])
         frame.environment.volume_score = float(results["vol"]["score"])
         
-        # Piece 11 Handoff: Write Regime ID to Risk Slot
+        # Handoff: Write Regime ID to Risk Slot
         frame.risk.regime_id = regime_id
         
         # Cache for get_state
@@ -148,7 +150,7 @@ class Council:
 
     def _generate_regime_id(self, results: Dict[str, Any]) -> str:
         """
-        Piece 11: Canonical 16-character D_A_V_T Regime ID logic.
+        Canonical 16-character D_A_V_T Regime ID logic.
         D: Dist AVWAP | A: ATR Ratio | V: Vol Ratio | T: Trend (ADX)
         """
         # 1. D: Distance from AVWAP (Scaled -1.0 to 1.0)
@@ -194,7 +196,7 @@ class Council:
             return confidence
         except Exception as e:
             # SOUL-W-P30-214: Council internal math fallback
-            print(f"[SOUL-W-P30-214] COUNCIL: Legacy fallback triggered: {e}")
+            logger.info(f"[SOUL-W-P30-214] COUNCIL: Legacy fallback triggered: {e}")
             return 0.0
 
     def get_state(self) -> Dict[str, Any]:
@@ -210,7 +212,7 @@ class Council:
 
     def calculate_cortex_cache(self):
         """
-        Piece 12: Centralized Indicator Authority.
+        Centralized Indicator Authority.
         Populates the high-speed DuckDB precalc cache directly from the raw tape.
         """
         conn = self.librarian.get_duck_connection()
@@ -233,7 +235,7 @@ class Council:
         conn.execute(query)
 
     def _calculate_atr_score(self, df: pd.DataFrame):
-        # Piece 10: Use standardized Numba kernel
+        # Use standardized Numba kernel
         window = int(self.config.get("atr_window", 14))
         avg_window = int(self.config.get("atr_avg_window", 50))
 
@@ -252,7 +254,7 @@ class Council:
         return {"score": float(np.clip(ratio - 0.5, 0, 1)), "val": last_atr, "avg": avg_atr}
 
     def _calculate_adx_score(self, df: pd.DataFrame):
-        # Piece 10: Use standardized Numba kernel
+        # Use standardized Numba kernel
         window = int(self.config.get("adx_window", 14))
         if len(df) < (window * 2) + 1: 
             return {"score": 0.5, "val": 25.0, "avg": 25.0}
@@ -280,7 +282,7 @@ class Council:
         return {"score": float(np.clip(ratio / 2.0, 0, 1)), "val": last_vol, "avg": avg_vol}
 
     def _calculate_vwap_score(self, df: pd.DataFrame):
-        # Piece 10: Use standardized Numba kernel
+        # Use standardized Numba kernel
         gear = int(self.config.get("active_gear", 5))
         subset = df.tail(gear)
         

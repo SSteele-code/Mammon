@@ -6,6 +6,8 @@ import time
 import os
 from pathlib import Path
 from typing import Dict
+import logging
+logger = logging.getLogger(__name__)
 
 # JIT-Compiled "Dream Loop"
 @jit(nopython=True)
@@ -89,8 +91,7 @@ class GhostRunner:
         self.conn = duckdb.connect(db_path, read_only=True)
         
     def run_backtest(self, symbol: str):
-        print(f"[GHOST] Warming up engine for {symbol}...")
-        
+        logger.info(f"[GHOST] Warming up engine for {symbol}...")
         # 1. LOAD (Zero-Copy Arrow -> Numpy)
         start_load = time.time()
         # Fetch columns as numpy arrays directly
@@ -108,8 +109,7 @@ class GhostRunner:
         uppers = df['upper_band'].to_numpy()
         lowers = df['lower_band'].to_numpy()
         
-        print(f"   Loaded {len(closes)} bars in {time.time()-start_load:.4f}s")
-        
+        logger.info(f"   Loaded {len(closes)} bars in {time.time()-start_load:.4f}s")
         # 2. EXECUTE (JIT)
         start_run = time.time()
         entries, exits, pnls = run_dream_loop(closes, atrs, means, uppers, lowers)
@@ -118,12 +118,11 @@ class GhostRunner:
         # 3. REPORT
         n_trades = len(pnls)
         total_pnl = sum(pnls)
-        print(f"[GHOST] SIMULATION COMPLETE")
-        print(f"   Bars Processed: {len(closes)}")
-        print(f"   Engine Time:    {elapsed:.6f}s ({(len(closes)/elapsed)/1_000_000:.2f} M bars/sec)")
-        print(f"   Trades:         {n_trades}")
-        print(f"   Total PnL:      {total_pnl:.4f}")
-
+        logger.info(f"[GHOST] SIMULATION COMPLETE")
+        logger.info(f"   Bars Processed: {len(closes)}")
+        logger.info(f"   Engine Time:    {elapsed:.6f}s ({(len(closes)/elapsed)/1_000_000:.2f} M bars/sec)")
+        logger.info(f"   Trades:         {n_trades}")
+        logger.info(f"   Total PnL:      {total_pnl:.4f}")
 if __name__ == "__main__":
     runner = GhostRunner()
     # runner.run_backtest("AMC")

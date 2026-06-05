@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 _DEFAULT_DB = Path(__file__).resolve().parents[2] / "Hospital" / "Memory_care" / "diamond_silo.db"
 
@@ -32,4 +34,4 @@ class DiamondScribe:
             conn.executemany(f"INSERT INTO training_matrix VALUES ({placeholders})", rows)
             conn.commit()
 
-        print(f"[DIAMOND_SCRIBE] Silo reset — {len(rows):,} rows, {len(cols)} cols.")
+        logger.info(f"[DIAMOND_SCRIBE] Silo reset — {len(rows):,} rows, {len(cols)} cols.")

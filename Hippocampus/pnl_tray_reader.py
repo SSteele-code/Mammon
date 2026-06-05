@@ -2,6 +2,8 @@ import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import logging
+logger = logging.getLogger(__name__)
 
 _ROOT = Path(__file__).resolve().parents[1]
 _MONEY_DB  = _ROOT / "runtime" / ".tmp_test_local" / "compat_librarian.db"
@@ -38,7 +40,7 @@ class PnlTrayReader:
                 conn.row_factory = sqlite3.Row
                 return [dict(r) for r in conn.execute(sql, params).fetchall()]
         except Exception as exc:
-            print(f"[PNL_TRAY] query failed ({db.name}): {exc}")
+            logger.info(f"[PNL_TRAY] query failed ({db.name}): {exc}")
             return []
 
     def _scalar(self, db: Path, sql: str, params: tuple = (), default=0.0):

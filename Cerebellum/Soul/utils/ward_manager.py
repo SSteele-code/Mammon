@@ -1,4 +1,6 @@
 from Hippocampus.Archivist.librarian import librarian
+import logging
+logger = logging.getLogger(__name__)
 
 class WardManager:
     """
@@ -19,9 +21,9 @@ class WardManager:
             keys = redis_conn.keys("mammon:brain_frame:*")
             if keys:
                 redis_conn.delete(*keys)
-                print(f"[WARD_MANAGER] Janitor Sweep complete. Purged {len(keys)} stale BrainFrames from Redis.")
+                logger.info(f"[WARD_MANAGER] Janitor Sweep complete. Purged {len(keys)} stale BrainFrames from Redis.")
             else:
-                print("[WARD_MANAGER] Janitor Sweep complete. Ward is clean.")
+                logger.info("[WARD_MANAGER] Janitor Sweep complete. Ward is clean.")
         except Exception as e:
             # SOUL-W-P35-215: Janitor sweep exception
-            print(f"[SOUL-W-P35-215] WARD_MANAGER: Janitor Sweep failed: {e}")
+            logger.info(f"[SOUL-W-P35-215] WARD_MANAGER: Janitor Sweep failed: {e}")

@@ -12,6 +12,8 @@ from Left_Hemisphere.Monte_Carlo.turtle_monte import TurtleMonte
 from Corpus.callosum import Callosum
 from Medulla.gatekeeper import Gatekeeper
 from Hippocampus.polygraph_mint import PolygraphMint
+import logging
+logger = logging.getLogger(__name__)
 
 class MintPress:
     """
@@ -30,7 +32,7 @@ class MintPress:
         grouped = self.df.groupby('symbol')
         
         for symbol, group in grouped:
-            print(f"Minting Asset: {symbol} (Batch Mode)...")
+            logger.info(f"Minting Asset: {symbol} (Batch Mode)...")
             safe_symbol = symbol.replace('/','_')
             output_file = os.path.join(self.output_dir, f"{safe_symbol}_mint.jsonl")
             polygraph = PolygraphMint(output_file)
@@ -41,7 +43,7 @@ class MintPress:
             processed_df = self.snapper.on_data_received(group)
             
             if processed_df is None:
-                print(f"Skipping {symbol} (Insufficient Data)")
+                logger.info(f"Skipping {symbol} (Insufficient Data)")
                 continue
                 
             # Iterate the PROCESSED dataframe which already has signals
@@ -111,8 +113,7 @@ class MintPress:
                 }
                 polygraph.mint_bar(snapshot)
                 
-        print("Minting Complete.")
-
+        logger.info("Minting Complete.")
 if __name__ == "__main__":
     hippo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     csv_path = os.path.join(os.path.dirname(hippo_dir), "stitched_samples.csv")

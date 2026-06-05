@@ -6,11 +6,13 @@ from Hippocampus.Archivist.librarian import librarian
 from Pituitary.refinery.service import SynapseRefinery
 
 import uuid
+import logging
+logger = logging.getLogger(__name__)
 
 class ParamCrawler:
     """
     Hippocampus/Crawler: The Dual-Mode Genetic Engine.
-    Piece 224: Dual-mode support (MINE / PROMOTE).
+    Dual-mode support (MINE / PROMOTE).
     """
     def __init__(self):
         self.librarian = librarian
@@ -18,7 +20,7 @@ class ParamCrawler:
         self.last_mine_ts = 0
         
     def crawl(self, pulse_type: str, frame: Any):
-        """Piece 224: Core entry point for the crawler logic."""
+        """Core entry point for the crawler logic."""
         if pulse_type != "MINT":
             return
             
@@ -33,7 +35,7 @@ class ParamCrawler:
 
     def _re_synthesize_tier_score(self, params: Dict[str, Any], tickets: pd.DataFrame) -> np.ndarray:
         """
-        Piece 227: Vectorized re-synthesis of tier_score for a candidate param set.
+        Vectorized re-synthesis of tier_score for a candidate param set.
         Blends historical Monte and Structure signals using the candidate's weights.
         """
         # 1. Extract raw signals and weights
@@ -44,7 +46,7 @@ class ParamCrawler:
         w_right = float(params.get("callosum_w_right", 0.30))
         
         # 2. Vectorized blending: tier_score = (monte * w_monte) + (signal * w_right)
-        # Piece 49: Standard blended synthesis logic
+        # Standard blended synthesis logic
         re_synthesized_scores = (monte * w_monte) + (structure * w_right)
         
         # 3. Piece 14: Clamp to [0, 1]
@@ -52,7 +54,7 @@ class ParamCrawler:
 
     def _replay_params(self, params: Dict[str, Any], tickets: pd.DataFrame) -> float:
         """
-        Piece 226: Production-grade Replay Kernel.
+        Production-grade Replay Kernel.
         Grounds re-synthesized scores against realized market behavior (PnL).
         """
         if tickets.empty:
@@ -75,7 +77,7 @@ class ParamCrawler:
             return float(np.mean(fitness_kernel))
         except Exception as e:
             # [CRAWL-E-MINE-1002] REPLAY_KERNEL_FAILED
-            print(f"[CRAWL-E-MINE-1002] REPLAY_KERNEL_FAILED: {e}")
+            logger.info(f"[CRAWL-E-MINE-1002] REPLAY_KERNEL_FAILED: {e}")
             return 0.0
 
     def _run_mine_mode(self, vault: Dict[str, Any], frame: Any):
@@ -92,15 +94,15 @@ class ParamCrawler:
         if (now - self.last_mine_ts) < (interval * 300): # MINTs to seconds (approx)
             return
             
-        print(f"[CRAWLER] event=mine_start run_id={frame.market.machine_code[:8] if hasattr(frame.market, 'machine_code') else 'UNK'}")
+        logger.info(f"[CRAWLER] event=mine_start run_id={frame.market.machine_code[:8] if hasattr(frame.market, 'machine_code') else 'UNK'}")
         self.last_mine_ts = now
         
         # 2. Lookback & Harvest (Piece 228)
         lookback = int(standards.get("crawler_lookback_hours", 24))
         tickets = self.refinery.harvest_training_data(hours=lookback)
         if tickets.empty:
-            # Piece 243: MNER NO_TICKETS_FOR_REPLAY
-            print(f"[CRAWL-E-MINE-1001] NO_TICKETS_FOR_REPLAY: hours={lookback}")
+            # MNER NO_TICKETS_FOR_REPLAY
+            logger.info(f"[CRAWL-E-MINE-1001] NO_TICKETS_FOR_REPLAY: hours={lookback}")
             return
             
         # 3. Query historical param sets (Piece 229)
@@ -141,8 +143,7 @@ class ParamCrawler:
                 winner["source"]
             )
             
-        print(f"[CRAWLER] event=mine_complete winners={len(winners)}")
-
+        logger.info(f"[CRAWLER] event=mine_complete winners={len(winners)}")
     def _run_promote_mode(self, vault: Dict[str, Any], frame: Any):
         """
         Piece 235-242: Mode PROMOTE.
@@ -175,8 +176,8 @@ class ParamCrawler:
         try:
             avg_titanium_fitness = float(np.mean(soak_scores))
         except Exception as e:
-            # Piece 244: MNER SOAK_SCORE_INVALID
-            print(f"[CRAWL-E-PROM-1003] SOAK_SCORE_INVALID: {e}")
+            # MNER SOAK_SCORE_INVALID
+            logger.info(f"[CRAWL-E-PROM-1003] SOAK_SCORE_INVALID: {e}")
             return
 
         gold_fitness = float(gold.get("fitness", 0.5))
@@ -185,9 +186,8 @@ class ParamCrawler:
         try:
             if avg_titanium_fitness > (gold_fitness + delta):
                 # PROMOTE (Piece 239)
-                print(f"[CRAWLER] event=promote challenger={titanium['id']} incumbent={gold['id']}")
-                
-                # Piece 224: Delegate coronation to the Pituitary via the Librarian's 
+                logger.info(f"[CRAWLER] event=promote challenger={titanium['id']} incumbent={gold['id']}")
+                # Delegate coronation to the Pituitary via the Librarian's
                 # standardized interface. The Librarian already handles vault persistence 
                 # and Gold installation.
                 self.librarian.install_gold_params(
@@ -201,10 +201,10 @@ class ParamCrawler:
                 vault["titanium"] = None # Clear soak
             else:
                 # REJECT (Piece 241)
-                print(f"[CRAWLER] event=reject_titanium id={titanium['id']} fitness={avg_titanium_fitness:.4f}")
+                logger.info(f"[CRAWLER] event=reject_titanium id={titanium['id']} fitness={avg_titanium_fitness:.4f}")
                 vault["titanium"] = None # Discard bad candidate
                 
             self.librarian.set_hormonal_vault(vault)
         except Exception as e:
-            # Piece 245: MNER PROMOTION_ABORTED
-            print(f"[CRAWL-E-PROM-1004] PROMOTION_ABORTED: {e}")
+            # MNER PROMOTION_ABORTED
+            logger.info(f"[CRAWL-E-PROM-1004] PROMOTION_ABORTED: {e}")

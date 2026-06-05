@@ -12,6 +12,8 @@ from Right_Hemisphere.Snapping_Turtle.engine import SnappingTurtle
 from Left_Hemisphere.Monte_Carlo.turtle_monte import TurtleMonte
 from Corpus.callosum import Callosum
 from Medulla.gatekeeper import Gatekeeper
+import logging
+logger = logging.getLogger(__name__)
 
 class PlaybackHarness:
     """
@@ -38,8 +40,7 @@ class PlaybackHarness:
             self.df['adx'] = 30.0
 
     def run(self, start_bar=60, end_bar=None):
-        print(f"--- [HIPPOCAMPUS] Starting Playback: {self.csv_path} ---")
-        
+        logger.info(f"--- [HIPPOCAMPUS] Starting Playback: {self.csv_path} ---")
         end_bar = end_bar or len(self.df)
         
         for i in range(start_bar, end_bar):
@@ -53,9 +54,8 @@ class PlaybackHarness:
             
             if last_bar['tier1_signal']:
                 price = last_bar['close']
-                print(f"\n[!] T1 SIGNAL DETECTED at bar {i} | Price: {price}")
-                
-                print("    - Left Hemisphere: Running Monte Carlo Simulation...")
+                logger.info(f"\n[!] T1 SIGNAL DETECTED at bar {i} | Price: {price}")
+                logger.info("    - Left Hemisphere: Running Monte Carlo Simulation...")
                 survival_rates = self.monte.simulate(
                     current_price=last_bar['close'],
                     atr=last_bar['atr'],
@@ -64,23 +64,21 @@ class PlaybackHarness:
                     direction=1
                 )
                 
-                print("    - Corpus: Synthesizing Tier Score...")
+                logger.info("    - Corpus: Synthesizing Tier Score...")
                 tier_packet = self.corpus.score_tier(
                     tier_id=1,
                     signal={'signal_type': 'LONG', 'strength': 1.0},
                     survival_rates=survival_rates
                 )
                 
-                print("    - Cerebellum: Gatekeeper Consulting Council...")
+                logger.info("    - Cerebellum: Gatekeeper Consulting Council...")
                 decision = self.cerebellum.decide(tier_packet, current_slice)
                 
                 if decision.ready_to_fire:
-                    print(f"    - [FIRE] TRIGGER EXCITED: {decision.reason}")
+                    logger.info(f"    - [FIRE] TRIGGER EXCITED: {decision.reason}")
                 else:
-                    print(f"    - [BLOCK] TRIGGER INHIBITED: {decision.reason}")
-            
-        print("\n--- [HIPPOCAMPUS] Playback Complete ---")
-
+                    logger.info(f"    - [BLOCK] TRIGGER INHIBITED: {decision.reason}")
+        logger.info("\n--- [HIPPOCAMPUS] Playback Complete ---")
 if __name__ == "__main__":
 
     hippo_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

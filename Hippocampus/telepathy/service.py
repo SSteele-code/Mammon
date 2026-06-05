@@ -5,13 +5,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from Hippocampus.Archivist.librarian import MultiTransportLibrarian, librarian
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Telepathy:
     """
     Hippocampus/Telepathy: The Asynchronous Nervous System (v5).
     
-    Piece 117: Redis Streams Integration.
+    Redis Streams Integration.
     - Replaces in-memory queue with a durable Redis Stream.
     - Multi-Transport routing (DuckDB, TimescaleDB).
     - Vectorized batching via XREAD.
@@ -42,11 +44,10 @@ class Telepathy:
         # Start the Scribe Daemon
         self.scribe_thread = threading.Thread(target=self._scribe_loop, daemon=True, name="ScribeDaemon")
         self.scribe_thread.start()
-        print(f"[TELEPATHY] Scribe Daemon ignited (v5 Redis). Streaming to: {self.stream_key}")
-
+        logger.info(f"[TELEPATHY] Scribe Daemon ignited (v5 Redis). Streaming to: {self.stream_key}")
     def transmit(self, sql: str, params: Any, transport: str = "auto"):
         """
-        Piece 117: Fire-and-forget logging via Redis Streams.
+        Fire-and-forget logging via Redis Streams.
         Durable and cross-process safe.
         """
         try:
@@ -82,8 +83,7 @@ class Telepathy:
             # HIPP-E-P68-703: Outer transmit exception
             self.dropped_items += 1
             if self.dropped_items % 100 == 0:
-                print(f"[HIPP-E-P68-703] TELEPATHY_TRANSMIT_FAILED: {e} (Dropped: {self.dropped_items})")
-
+                logger.info(f"[HIPP-E-P68-703] TELEPATHY_TRANSMIT_FAILED: {e} (Dropped: {self.dropped_items})")
     def _serialize_params(self, params: Any) -> Any:
         def _ser(v):
             if hasattr(v, 'isoformat'):
@@ -144,24 +144,23 @@ class Telepathy:
                         
                         self.total_committed += len(batch)
                     except Exception as e:
-                        print(f"[TELEPATHY_ERROR] Batch commit failed for {transport}: {e}")
+                        logger.error(f"[TELEPATHY_ERROR] Batch commit failed for {transport}: {e}")
                         self.dropped_items += len(batch)
 
                 # 4. Cleanup (Acknowledge/Delete processed items)
                 try:
                     redis_conn.xdel(self.stream_key, *msg_ids)
                 except Exception as e:
-                    print(f"[HIPP-E-P68-704] TELEPATHY_CLEANUP_FAILED: {e}")
-                
+                    logger.info(f"[HIPP-E-P68-704] TELEPATHY_CLEANUP_FAILED: {e}")
                 self.last_commit_time = (time.perf_counter() - start_time) * 1000.0
 
             except Exception as e:
                 # Phase 7 Target: Standardized MNER for fatal scribe failure
-                print(f"[HIPP-F-P68-701] TELEPATHY_SCRIBE_FATAL_FAILURE: {e}")
+                logger.critical(f"[HIPP-F-P68-701] TELEPATHY_SCRIBE_FATAL_FAILURE: {e}")
                 time.sleep(1)
 
     def shutdown(self):
-        print("[TELEPATHY] Shutdown requested.")
+        logger.info("[TELEPATHY] Shutdown requested.")
         self.running = False
         if self.scribe_thread.is_alive():
             self.scribe_thread.join(timeout=5.0)

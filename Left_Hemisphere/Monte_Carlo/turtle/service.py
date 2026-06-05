@@ -10,6 +10,8 @@ from Cerebellum.Soul.brain_frame import BrainFrame
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
 from Hippocampus.Archivist.librarian import librarian
 from Left_Hemisphere.Monte_Carlo.walk.service import QuantizedGeometricWalk
+import logging
+logger = logging.getLogger(__name__)
 
 
 class TurtleMonte:
@@ -30,7 +32,7 @@ class TurtleMonte:
         self.mode = mode.upper()
         self.librarian = librarian
         
-        # Piece 28: Left Hemisphere owns the Walk Engine
+        # Left Hemisphere owns the Walk Engine
         self.walk_engine = QuantizedGeometricWalk(mode=self.mode)
         
         self.rng = np.random.default_rng()
@@ -41,12 +43,12 @@ class TurtleMonte:
         if frame is None:
             raise TypeError("on_data_received requires frame")
         
-        # Piece 14: Risk engine remains aware across all pulses
+        # Risk engine remains aware across all pulses
         if not enforce_pulse_gate(pulse_type, ["SEED", "ACTION", "MINT"], "Left_Hemisphere"):
             # Contract: pulse ownership belongs to Soul; LH should not reject lifecycle ownership.
             return True
 
-        # Piece 28: Paint priors before simulation ignites
+        # Paint priors before simulation ignites
         try:
             self.walk_engine.build_seed(
                 pulse_type=pulse_type,
@@ -55,12 +57,12 @@ class TurtleMonte:
             return True
         except Exception as e:
             # LHMI-E-P41-357: Walk seeding failure
-            print(f"[LHMI-E-P41-357] TURTLE: Walk seeding failed: {e}")
+            logger.info(f"[LHMI-E-P41-357] TURTLE: Walk seeding failed: {e}")
             return False
 
     def simulate(self, pulse_type: str = None, frame: BrainFrame = None, walk_seed=None, **legacy_kwargs):
         """Runs vectorized simulation and updates frame.risk."""
-        # Piece 14: Simulation only fires at SEED and ACTION
+        # Simulation only fires at SEED and ACTION
         if not enforce_pulse_gate(pulse_type, ["SEED", "ACTION"], "Left_Hemisphere"):
             return 0.0
 
@@ -164,12 +166,12 @@ class TurtleMonte:
 
         except Exception as e:
             # Phase 3 Target: Standardized MNER for simulation failure
-            print(f"[LHMI-E-P44-355] MONTE_SIM_FAILURE: {e}")
+            logger.info(f"[LHMI-E-P44-355] MONTE_SIM_FAILURE: {e}")
             self._safe_risk_reset(frame, reason="sim_crash")
             return 0.0
 
     def _log_simulation(self, pulse_type, start_ts, duration, n_steps, paths_per_lane, total_paths, price, atr, stop, council, rates, score):
-        """Piece 101: Analytical consolidation into DuckDB."""
+        """Analytical consolidation into DuckDB."""
         try:
             self.librarian.mint_monte({
                 "ts": start_ts,
@@ -188,7 +190,7 @@ class TurtleMonte:
         except Exception as e:
             # LHMI-W-P41-358: simulation logging failure
             # Audit persistence must not influence runtime policy flow.
-            print(f"[LHMI-W-P41-358] TURTLE: Simulation logging failed: {e}")
+            logger.info(f"[LHMI-W-P41-358] TURTLE: Simulation logging failed: {e}")
             pass
 
     def get_state(self):

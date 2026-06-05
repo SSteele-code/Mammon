@@ -3,6 +3,8 @@ import pandas as pd
 from typing import List, Tuple, Dict, Any
 from Cerebellum.Soul.brain_frame import BrainFrame
 from Cerebellum.Soul.utils.timing import enforce_pulse_gate
+import logging
+logger = logging.getLogger(__name__)
 
 class SnappingTurtle:
     """
@@ -21,7 +23,7 @@ class SnappingTurtle:
         if frame is None:
             raise TypeError("on_data_received requires BrainFrame")
 
-        # Piece 14: Structure painter processes all pulses
+        # Structure painter processes all pulses
         if not enforce_pulse_gate(pulse_type, ["SEED", "ACTION", "MINT"], "Right_Hemisphere"):
             return None, []
 
@@ -49,7 +51,7 @@ class SnappingTurtle:
             closes = ohlc_matrix[:, 2]
         except Exception as e:
             # Phase 3 Target: Standardized MNER for numeric failure
-            print(f"[RHMI-E-P40-301] RIGHT_HEMI_NUMERIC_CONVERSION_FAILED: {e}")
+            logger.error(f"[RHMI-E-P40-301] RIGHT_HEMI_NUMERIC_CONVERSION_FAILED: {e}")
             self._safe_reset(frame, active_gear, status="non_numeric_ohlc")
             return None, []
 

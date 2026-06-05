@@ -6,6 +6,8 @@ import argparse
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional
+import logging
+logger = logging.getLogger(__name__)
 
 class DuckPond:
     """
@@ -284,7 +286,7 @@ class DuckPond:
         return {"ran": True, "deleted": deleted, "total_deleted": sum(deleted.values()), "policy": self.get_sunset_policy()}
 
     def ingest_csv(self, csv_path: str):
-        """Piece 14: Dynamic ingestion for Phase 1 expanded schema."""
+        """Dynamic ingestion for Phase 1 expanded schema."""
         # Check available columns in CSV
         csv_cols = self.conn.execute(f"SELECT * FROM read_csv_auto('{csv_path}', header=True) LIMIT 0").df().columns
         
@@ -354,7 +356,7 @@ class DuckPond:
 
     def append_live_bars(self, df: pd.DataFrame):
         """
-        Piece 14: Appends raw 1m OHLCV bars including bid/ask/size.
+        Appends raw 1m OHLCV bars including bid/ask/size.
         """
         temp_df = self._normalize_live_ohlcv_df(df)
         if temp_df.empty:
@@ -382,16 +384,16 @@ class DuckPond:
         after = self.conn.execute("SELECT count(*) FROM market_tape").fetchone()[0]
         added = after - before
         if added > 0:
-            print(f"[DUCK_POND] Appended {added:,} live bars (total: {after:,})")
+            logger.info(f"[DUCK_POND] Appended {added:,} live bars (total: {after:,})")
             try:
                 self.run_sunset(force=False)
             except Exception as e:
-                print(f"[DUCK_POND] Sunset skipped after live append: {e}")
+                logger.info(f"[DUCK_POND] Sunset skipped after live append: {e}")
         return added
 
     def append_live_5m_bars(self, df: pd.DataFrame):
         """
-        Piece 15: Appends finalized 5m OHLCV bars including bid/ask/size.
+        Appends finalized 5m OHLCV bars including bid/ask/size.
         """
         temp_df = self._normalize_live_ohlcv_df(df)
         if temp_df.empty:
@@ -419,7 +421,7 @@ class DuckPond:
         after = self.conn.execute("SELECT count(*) FROM market_tape_5m").fetchone()[0]
         added = after - before
         if added > 0:
-            print(f"[DUCK_POND] Appended {added:,} live 5m bars (total: {after:,})")
+            logger.info(f"[DUCK_POND] Appended {added:,} live 5m bars (total: {after:,})")
         return added
 
     def write_synapse_batch(self, tickets: list):
@@ -469,4 +471,4 @@ class DuckPond:
 
 if __name__ == "__main__":
     pond = DuckPond()
-    print(f"DuckPond active: {pond.db_path}")
+    logger.info(f"DuckPond active: {pond.db_path}")

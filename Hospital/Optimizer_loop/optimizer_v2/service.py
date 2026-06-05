@@ -27,6 +27,8 @@ from sklearn.gaussian_process.kernels import Matern, ConstantKernel as C
 from Hippocampus.Archivist.librarian import MultiTransportLibrarian, librarian
 from Hospital.Optimizer_loop.bounds import MAXS, MINS, normalize_weights, PARAM_KEYS, DOMAIN_SLICES
 from Hospital.Optimizer_loop.guardrailed_optimizer import GuardrailedOptimizer, ScoreVector
+import logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -55,7 +57,7 @@ class OptimizerV2Engine:
     """
     Stage A-H optimizer pipeline with guardrailed scoring and promotion.
     Target #71: Supports 'Pause & Resume' state machine.
-    Piece 209: Domain-aware optimization support.
+    Domain-aware optimization support.
     """
 
     def __init__(
@@ -75,7 +77,7 @@ class OptimizerV2Engine:
         self.budget = budget or V2Budget()
         self.domain = domain.upper()
         
-        # Piece 209: Load domain config if applicable
+        # Load domain config if applicable
         self.domain_config = DOMAIN_SLICES.get(self.domain, {"indices": list(range(len(PARAM_KEYS)))})
         self.domain_indices = self.domain_config["indices"]
         
@@ -483,7 +485,7 @@ class OptimizerV2Engine:
                 x_scout = self._sample_rows(1000)
             except Exception as e:
                 # [HOSP-E-P84-805] Sampling failure
-                print(f"[HOSP-E-P84-805] FURNACE: Candidate sampling failed: {e}")
+                logger.error(f"[HOSP-E-P84-805] FURNACE: Candidate sampling failed: {e}")
                 self.guard.log_stage_drop(stage, "SAMPLING_FAILURE", regime_id=regime_id)
                 return []
 
@@ -534,7 +536,7 @@ class OptimizerV2Engine:
             
         except Exception as e:
             # [HOSP-E-P84-804] Stage execution failure (GPR fit)
-            print(f"[HOSP-E-P84-804] FURNACE: GPR Fit failed: {e}")
+            logger.error(f"[HOSP-E-P84-804] FURNACE: GPR Fit failed: {e}")
             self.guard.log_stage_drop(stage, "GPR_FIT_FAILURE", regime_id=regime_id)
             return []
 
@@ -597,7 +599,7 @@ class OptimizerV2Engine:
         rows = np.tile(baseline_vec, (n, 1))
         
         # 2. Randomize only the domain indices
-        # Piece 216: Use Diamond Rails if available, else fall back to MINS/MAXS
+        # Use Diamond Rails if available, else fall back to MINS/MAXS
         low = np.array([float(rails.get(k, {"min": MINS[i]})["min"]) for i, k in enumerate(PARAM_KEYS)])
         high = np.array([float(rails.get(k, {"max": MAXS[i]})["max"]) for i, k in enumerate(PARAM_KEYS)])
         
@@ -621,7 +623,7 @@ class OptimizerV2Engine:
 
     def _approx_score(self, row: np.ndarray, price: float, atr: float, stop_level: float) -> float:
         """
-        Piece 12: Consolidated indicator authority.
+        Consolidated indicator authority.
         Delegates core scoring math to the Council's Numba-accelerated kernels.
         """
         from Cerebellum.council.utils.math_kernels import calculate_approx_fitness_njit
