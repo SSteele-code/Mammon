@@ -1,0 +1,30 @@
+# Mammon Security & Hygiene Ignore
+.env
+*.db
+*.sqlite
+*.log
+__pycache__/
+.pytest_cache/
+.DS_Store
+
+# Local Runtime Data
+runtime/
+*.duckdb
+*.duckdb.wal
+logs/
+Archive/
+ui_work/
+Hippocampus/Archivist/snapshots/
+Hippocampus/hormonal_vault.json
+Hippocampus/gold_params.json
+Hippocampus/silver_params.json
+Hippocampus/fornix/shocks/crypto/
+Hippocampus/fornix/shocks/normalized/
+Hippocampus/fornix/shocks/raw_data/
+
+# Python Environment
+venv/
+.env/
+build/
+dist/
+*.egg-info/
